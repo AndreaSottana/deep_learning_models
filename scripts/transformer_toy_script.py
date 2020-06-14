@@ -1,4 +1,6 @@
 import torch
+import yaml
+import logging.config
 import modules.transformer.sublayers as sublayers
 from modules.transformer.encoder import Encoder
 from modules.transformer.decoder import Decoder
@@ -26,6 +28,12 @@ hp = Config(
     LR=1e-3,
     EPOCHS=40
 )
+
+
+LOGGING_CONFIG = "../modules/logging.yaml"
+with open(LOGGING_CONFIG, 'r') as f:
+    config = yaml.safe_load(f)
+logging.config.dictConfig(config)
 
 
 if __name__ == '__main__':
