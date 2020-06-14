@@ -29,7 +29,7 @@ hp = Config(
 
 
 if __name__ == '__main__':
-    run = 3
+    run = 3  # change according to which model you want to run
 
     if run == 1:
         ############## SIMPLE ENCODER - STEP BY STEP ##############################
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         mask_tensor = torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN, hp.MAX_SEQ_LEN) > 0.5
         encoder = Encoder(
             src_vocab_size=10,
-            seq_length=hp.MAX_SEQ_LEN,  #NEED TO ADD AN ASSERT STATEMENT HERE
+            seq_length=hp.MAX_SEQ_LEN,
             D=hp.D_MODEL,
             num_heads=hp.HEADS,
             D_ff=hp.D_FF,
