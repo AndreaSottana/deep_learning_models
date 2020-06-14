@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import logging
 from typing import Tuple
-from modules.transformers.decoder import Decoder
-from modules.transformers.encoder import Encoder
+from modules.transformer.decoder import Decoder
+from modules.transformer.encoder import Encoder
 
 
 logger = logging.getLogger(__name__)
