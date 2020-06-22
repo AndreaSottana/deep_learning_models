@@ -16,15 +16,20 @@ class Transformer(nn.Module):
     identical stacked encoder and decoder layers respectively. The paper uses 6 encoder layers and 6 decoder layers.
     At the end of the decoder, there is a linear layer followed by a softmax activation.
     This class also contains private methods to create source and target masks.
+
+    The weights are initialized using the Xavier distribution. This will automatically initialize all the weights in
+    the more granular blocks that build the Transformer (i.e. the Encoder, Decoder, and all their layers and sublayers)
+    also with the same Xavier distribution. Networks initialized with Xavier achieved substantially quicker
+    convergence and higher accuracy, see http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
     """
     def __init__(
             self,
             src_vocab_size: int,
             trg_vocab_size: int,
-            seq_length: int,
             D: int,
             num_heads: int,
             D_ff: int,
+            max_seq_length: int = 512,
             num_encoder_layers: int = 6,
             num_decoder_layers: int = 6,
             src_pad_idx: int = 0,
@@ -38,15 +43,15 @@ class Transformer(nn.Module):
         :param trg_vocab_size: the length of the vocabulary of the target sequence, i.e. the size of the dictionary
                of embeddings. This does not have to be the same vocabulary of the source/input sequence, especially
                if the two sequences are in different languages.
-        :param seq_length: The maximum length of a sentence which can be used in this model. If a sentence is longer
-               it must be truncated (this module does not provide a feature for truncation, it's up to the user to
-               ensure sentences are within this limit). In BERT, this is 512.
         :param D: the length of the input matrix (per token). For the first encoder and first decoder layer, this is
                the embedding matrix. In the paper D = 512.
         :param num_heads: the number of attention heads used in each (masked) multi-head attention layer.
                The paper uses 8 heads.
         :param D_ff: the output dimension of the first layer and input dimension of the second (final) layer, within
                the position-wise feed forward layer of each encoder and decoder layer. In the paper, D_ff = 2048.
+        :param max_seq_length: The maximum length of a sentence which can be used in this model. If a sentence is longer
+               it must be truncated (this module does not provide a feature for truncation, it's up to the user to
+               ensure sentences are within this limit). Most sentences will be much shorter. Default: 512.
         :param num_encoder_layers: the number of encoder layers. Default: 6.
         :param num_decoder_layers: the number of decoder layers. Default: 6.
         :param src_pad_idx: the index in the source vocabulary for the '<pad>' token. Default: 0.
@@ -54,34 +59,34 @@ class Transformer(nn.Module):
         :param device: the device on which to run the computations. Default: 'cpu'.
         :param dropout: the dropout applied to the each sub-layer of each encoder and decoder layer. Default: 0.1
         """
+        assert D % 2 == 0, f"D must be an even number, got {D}. Please reset it accordingly."
         super().__init__()
         self.src_pad_idx = src_pad_idx
         self.trg_pad_idx = trg_pad_idx
         self.encoder = Encoder(
-            src_vocab_size, seq_length, D, num_heads, D_ff, num_encoder_layers, src_pad_idx, device=device, dropout=dropout
+            src_vocab_size, D, num_heads, D_ff, max_seq_length, num_encoder_layers, src_pad_idx, device, dropout
         )
         self.decoder = Decoder(
-            trg_vocab_size, seq_length, D, num_heads, D_ff, num_decoder_layers, trg_pad_idx, device=device, dropout=dropout
+            trg_vocab_size, D, num_heads, D_ff, max_seq_length, num_decoder_layers, trg_pad_idx, device, dropout
         )
         self.linear = nn.Linear(D, trg_vocab_size)
 
-        # initializing all the model parameters using Xavier uniform distribution
+        # initializing all the model parameters using Xavier uniform distribution, see docstring above
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
     def _create_src_mask(self, input_sequence: torch.Tensor) -> torch.Tensor:
         """
-        In the source mask, we mask anywhere there is a '<pad>' token
+        In the source mask, we mask anywhere there is a '<pad>' token.
         :param input_sequence:  the input sentences, each sentence represented by numbers corresponding to the index of
                the sentence's words in the source vocabulary. This must be a LongTensor.
                Dim: (batch_size, src_sequence_length)
         :return: src_mask: a tensor of booleans. True in those positions where there is a '<pad>' token in the
-                 input_sequence, and False otherwise.
+                 input_sequence, and False otherwise. Dim: (batch_size, 1, src_sequence_length)
+                 IMPORTANT NOTE: The second dimension is 1. However, this will be broadcasted to be equal to
+                 src_sequence_length or trg_sequence_length in downstream operations, accordingly.
         """
-        # assert input_sequence.shape[1] == input_sequence.shape[2], \
-        #     f'The target tensor much have dimensions 1 and 2 identical. Got {input_sequence.shape[1]} and ' \
-        #     f'{input_sequence.shape[2]} instead.'
         src_mask = (input_sequence != self.src_pad_idx).unsqueeze(-2)
         return src_mask
 
@@ -95,13 +100,12 @@ class Transformer(nn.Module):
                Dim: (batch_size, trg_sequence_length)
         :return: trg_mask: a tensor of booleans. True in those positions where there is a '<pad>' token in the
                  target_sequence, as well as in all the illegal/future positions, and False otherwise.
+                 Dim: (batch_size, trg_sequence_length, trg_sequence_length)
         """
-        # assert target_sequence.shape[1] == target_sequence.shape[2], \
-        #     f'The target tensor much have dimensions 1 and 2 identical. Got {target_sequence.shape[1]} and ' \
-        #     f'{target_sequence.shape[2]} instead.'
         trg_mask = (target_sequence != self.trg_pad_idx).unsqueeze(-2)
         illegal_pos_mask = torch.ones((1, target_sequence.shape[1], target_sequence.shape[1])).triu(1) == 0
         trg_mask = trg_mask & illegal_pos_mask  # bitwise and operator
+        # broadcasting turns (A, 1, C) & (1, B, C) into (A, B, C) shape, i.e. (batch_size, trg_seq_len, trg_seq_len)
         return trg_mask
 
     def forward(
@@ -116,16 +120,17 @@ class Transformer(nn.Module):
                of the sentence's words in the target vocabulary. This must be a LongTensor.
                Dim: (batch_size, trg_sequence_length)
         :return: logits: the transformer output, after applying a linear layer to the decoder output.
-                 Dim: (batch_size, trg_sequence_length, D)
+                This linear layer converts the last dimension from D to trg_vocab_size.
+                 Dim: (batch_size, trg_sequence_length, trg_vocab_size)
                  encoder_attention_weights: the attention weights of the final encoder layer. This is a rank-4 tensor,
                  as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, src_sequence_length, src_sequence_length)
+                 Dim: (batch_size, num_heads, src_sequence_length, src_sequence_length)
                  masked_mha_attention_weights: the attention weights of the masked multi-head attention sublayer of the
                  final decoder layer. This is a rank-4 tensor, as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, trg_sequence_length, trg_sequence_length)
+                 Dim: (batch_size, num_heads, trg_sequence_length, trg_sequence_length)
                  decoder_attention_weights: the attention weights of the second multi-head attention sublayer of the
                  final decoder layer. This is a rank-4 tensor, as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, trg_sequence_length, src_sequence_length)
+                 Dim: (batch_size, num_heads, trg_sequence_length, src_sequence_length)
         """
         assert input_sequence.shape[0] == target_sequence.shape[0], \
             f"Input and target sequences must have the same batch size. Got {input_sequence.shape[0]} and " \
