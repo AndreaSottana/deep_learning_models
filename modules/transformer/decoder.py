@@ -29,6 +29,7 @@ class DecoderLayer(nn.Module):
         :param device: the device on which to run the computations. Default: 'cpu'.
         :param dropout: the dropout applied to the each sub-layer. Default: 0.1
         """
+        assert D % 2 == 0, f"D must be an even number, got {D}. Please reset it accordingly."
         super().__init__()
         self.D = D
         self.masked_mha = MultiHeadAttention(num_heads, D, device=device, dropout=dropout)  # this is masked
@@ -68,7 +69,7 @@ class DecoderLayer(nn.Module):
                  Dim: (num_heads, batch_size, trg_sequence_length, trg_sequence_length)
                  decoder_attention_weights: the attention weights of the second multi-head attention sublayer.
                  This is a rank-4 tensor, as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, trg_sequence_length, src_sequence_length)
+                 Dim: (batch_size, num_heads, trg_sequence_length, src_sequence_length)
         """
         assert target_sequence.shape[0] == encoder_output.shape[0] == src_mask.shape[0] == trg_mask.shape[0], \
             f"target_sequence, encoder_output, src_mask and trg_mask must have the same batch size. Got " \
@@ -87,10 +88,10 @@ class DecoderLayer(nn.Module):
             f"The second dimensions of target_sequence and the second and third dimension of trg_mask must all be " \
             f"equal to each other (this is the target sequence length). Got {target_sequence.shape[1]}, " \
             f"{trg_mask.shape[1]} and {trg_mask.shape[2]} instead."
-        assert encoder_output.shape[1] == src_mask.shape[1] == src_mask.shape[2], \
-            f"The second dimensions of encoder_output and the second and third dimension of src_mask must all be " \
-            f"equal to each other (this is the input sequence length). Got {encoder_output.shape[1]}, " \
-            f"{src_mask.shape[1]} and {src_mask.shape[2]} instead."
+        assert encoder_output.shape[1] == src_mask.shape[2], \
+            f"The second dimensions of encoder_output and the third dimension of src_mask must all be equal to each " \
+            f"other (this is the input sequence length). Got {encoder_output.shape[1]} and {src_mask.shape[2]} instead."
+        # src_mask.shape[1] can be 1, and will be broadcasted to be equal to src_mask.shape[2] during operations.
         logger.info(
             f"Implementing the forward pass for DecoderLayer. Batch size: {target_sequence.shape[0]}, input sequence "
             f"length: {encoder_output.shape[1]}, target sequence length: {target_sequence.shape[1]}, embedding/inner "
@@ -117,10 +118,10 @@ class Decoder(nn.Module):
     def __init__(
             self,
             trg_vocab_size: int,
-            seq_length: int,
             D: int,
             num_heads: int,
             D_ff: int,
+            max_seq_length: int = 512,
             num_layers: int = 6,
             trg_pad_idx: int = 0,
             device: str = 'cpu',
@@ -130,24 +131,24 @@ class Decoder(nn.Module):
         :param trg_vocab_size: the length of the vocabulary of the target sequence, i.e. the size of the dictionary
                of embeddings. This does not have to be the same vocabulary of the source/input sequence, especially
                if the two sequences are in different languages.
-        :param seq_length: The maximum length of a sentence which can be used in this model. If a sentence is longer
-               it must be truncated (this module does not provide a feature for truncation, it's up to the user to
-               ensure sentences are within this limit). In BERT, this is 512.
         :param D: the length of the input matrix (per token). For the first decoder layer, this is the embedding
                matrix. In the paper D = 512.
         :param num_heads: the number of attention heads. The paper uses 8 heads.
         :param D_ff: the output dimension of the first layer and input dimension of the second (final) layer, within
                the position-wise feed forward layer of each decoder layer. In the paper, D_ff = 2048.
+        :param max_seq_length: The maximum length of a sentence which can be used in this model. If a sentence is longer
+               it must be truncated (this module does not provide a feature for truncation, it's up to the user to
+               ensure sentences are within this limit). Most sentences will be much shorter. Default: 512.
         :param num_layers: the number of decoder layers. Default: 6.
         :param trg_pad_idx: the index in the target vocabulary for the '<pad>' token. Default: 0.
         :param device: the device on which to run the computations. Default: 'cpu'.
         :param dropout: the dropout applied to the each sub-layer of each decoder layer. Default: 0.1
         """
+        assert D % 2 == 0, f"D must be an even number, got {D}. Please reset it accordingly."
         super().__init__()
         self.D = D
-        self.seq_length = seq_length
         self.embeddings = EmbeddingLayer(trg_vocab_size, D, pad_idx=trg_pad_idx)
-        self.positional_encoding = PositionalEncoding(D, seq_length, dropout)
+        self.positional_encoding = PositionalEncoding(D, max_seq_length, dropout)
         self.decoder_layers = nn.ModuleList(
             [DecoderLayer(num_heads, D, D_ff, device, dropout) for _ in range(num_layers)]
         )
@@ -172,7 +173,7 @@ class Decoder(nn.Module):
                  Dim: (num_heads, batch_size, trg_sequence_length, trg_sequence_length)
                  decoder_attention_weights: the attention weights of the second multi-head attention sublayer of the
                  final decoder layer. This is a rank-4 tensor, as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, trg_sequence_length, src_sequence_length)
+                 Dim: (batch_size, num_heads, trg_sequence_length, src_sequence_length)
         """
         assert target_sequence.shape[0] == encoder_output.shape[0] == src_mask.shape[0] == trg_mask.shape[0], \
             f"target_sequence, encoder_output, src_mask and trg_mask must have the same batch size. Got " \
@@ -188,15 +189,14 @@ class Decoder(nn.Module):
             f"'.unsqueeze(0)' to your tensors."
         assert encoder_output.shape[2] == self.D, \
             f"The last dimension of encoder_output must be equal to D={self.D}. Got {encoder_output.shape[2]} instead."
-        assert self.seq_length == target_sequence.shape[1] == trg_mask.shape[1] == trg_mask.shape[2], \
-            f"The sequence length specified upon instantiating the Decoder, the second dimension of target_sequence " \
-            f"and the second and third dimension of trg_mask must all be equal to each other (this is the target " \
-            f"sequence length). Got {self.seq_length}, {target_sequence.shape[1]}, {trg_mask.shape[1]} and " \
-            f"{trg_mask.shape[2]} instead."
-        assert encoder_output.shape[1] == src_mask.shape[1] == src_mask.shape[2], \
-            f"The second dimensions of encoder_output and the second and third dimension of src_mask must all be " \
-            f"equal to each other (this is the input sequence length). Got {encoder_output.shape[1]}, " \
-            f"{src_mask.shape[1]} and {src_mask.shape[2]} instead."
+        assert target_sequence.shape[1] == trg_mask.shape[1] == trg_mask.shape[2], \
+            f"The second dimension of target_sequence and the second and third dimension of trg_mask must all be " \
+            f"equal to each other (this is the target sequence length). Got {target_sequence.shape[1]}, " \
+            f"{trg_mask.shape[1]} and {trg_mask.shape[2]} instead."
+        assert encoder_output.shape[1] == src_mask.shape[2], \
+            f"The second dimensions of encoder_output and the third dimension of src_mask must all be equal to each " \
+            f"other (this is the input sequence length). Got {encoder_output.shape[1]} and {src_mask.shape[2]} instead."
+        # src_mask.shape[1] can be 1, and will be broadcasted to be equal to src_mask.shape[2] during operations.
         logger.info(
             f"Implementing the forward pass for Decoder. Batch size: {target_sequence.shape[0]}, input sequence "
             f"length: {encoder_output.shape[1]}, target sequence length: {target_sequence.shape[1]}, embedding "
