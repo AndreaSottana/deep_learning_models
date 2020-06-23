@@ -19,27 +19,28 @@ class Config(dict):
 
 hp = Config(
     BATCH_SIZE=2,  # 100,  # 512,
-    D_MODEL=6,  # THIS MUST BE EVEN OR ELSE IT WILL FAIL # 512
-    MAX_SEQ_LEN=8,  # 512,
+    D_MODEL=16,  # THIS MUST BE EVEN OR ELSE IT WILL FAIL # 512
+    MAX_SEQ_LEN=512,
     P_DROP=0.1,
     D_FF=20,  # 2048,
-    HEADS=3,  # 8,
-    LAYERS=2,  # 6,
+    HEADS=4,  # 8,
+    LAYERS=3,  # 6,
     LR=1e-3,
     EPOCHS=40
 )
 
 
-LOGGING_CONFIG = "../modules/logging.yaml"
-with open(LOGGING_CONFIG, 'r') as f:
-    config = yaml.safe_load(f)
-logging.config.dictConfig(config)
-
-
 if __name__ == '__main__':
-    run = 3  # change according to which model you want to run
+
+    LOGGING_CONFIG = "../modules/logging.yaml"
+    with open(LOGGING_CONFIG, 'r') as f:
+        config = yaml.safe_load(f)
+    logging.config.dictConfig(config)
+
+    run = 4
 
     if run == 1:
+
         ############## SIMPLE ENCODER - STEP BY STEP ##############################
         # toy_encodings = torch.rand(100, 768, 512, dtype=torch.float)
         # print(toy_encodings.shape)
@@ -47,9 +48,9 @@ if __name__ == '__main__':
         toy_embedding_layer = sublayers.EmbeddingLayer(vocab_size=5, D=hp.D_MODEL)
         toy_embeddings = toy_embedding_layer(toy_vocab)
         print(toy_embeddings.shape)
-        toy_PE_layer = sublayers.PositionalEncoding(D=hp.D_MODEL, seq_length=toy_embeddings.shape[1])
+        toy_PE_layer = sublayers.PositionalEncoding(D=hp.D_MODEL, max_seq_length=toy_embeddings.shape[1])
         toy_PEs = toy_PE_layer(toy_embeddings)
-        print(toy_PEs.shape)
+        toy_PEs22 = toy_PE_layer(toy_embeddings)
         toy_MHA_layer = sublayers.MultiHeadAttention(num_heads=hp.HEADS, D=hp.D_MODEL)
         # toy_MHA, toy_MHA_weights = toy_MHA_layer(toy_encodings, toy_encodings, toy_encodings)
         toy_MHA, toy_MHA_weights = toy_MHA_layer(toy_PEs, toy_PEs, toy_PEs)
@@ -64,28 +65,27 @@ if __name__ == '__main__':
 
     if run == 2:
         ############## SIMPLE ENCODER ##############################
-        input_sequence = (10 * torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN)).long()
-        mask_tensor = torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN, hp.MAX_SEQ_LEN) > 0.5
+        input_sequence = (10 * torch.rand(hp.BATCH_SIZE, 14)).long()
+        mask_tensor = torch.rand(hp.BATCH_SIZE, 1, 14) > 0.5
         encoder = Encoder(
             src_vocab_size=10,
-            seq_length=hp.MAX_SEQ_LEN,
             D=hp.D_MODEL,
             num_heads=hp.HEADS,
             D_ff=hp.D_FF,
             num_layers=hp.LAYERS
         )
         encoder_output, encoder_attention_weights = encoder(input_sequence, mask_tensor)
-        print(encoder_output.shape, encoder_attention_weights.shape, sep="\n")
+        print(f"Encoder output shape: {encoder_output.shape},  expected: {hp.BATCH_SIZE, 14, hp.D_MODEL}")
+        print(f"Encoder attention weights shape: {encoder_attention_weights.shape}, expected: { hp.BATCH_SIZE, hp.HEADS, 14, 14}")
 
     if run == 3:
         ############## SIMPLE DECODER ##############################
-        target_sequence = (10 * torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN)).long()
-        encoder_output = torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN, hp.D_MODEL)
-        src_mask_tensor = torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN, hp.MAX_SEQ_LEN) > 0.5
-        trg_mask_tensor = torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN, hp.MAX_SEQ_LEN) > 0.5
+        target_sequence = (10 * torch.rand(hp.BATCH_SIZE, 27)).long()
+        encoder_output = torch.rand(hp.BATCH_SIZE, 14, hp.D_MODEL)
+        src_mask_tensor = torch.rand(hp.BATCH_SIZE, 1, 14) > 0.5  # 1 will be broadcaster to either 14 or 27
+        trg_mask_tensor = torch.rand(hp.BATCH_SIZE, 27, 27) > 0.5
         decoder = Decoder(
             trg_vocab_size=10,
-            seq_length=hp.MAX_SEQ_LEN,  #NEED TO ADD AN ASSERT STATEMENT HERE
             D=hp.D_MODEL,
             num_heads=hp.HEADS,
             D_ff=hp.D_FF,
@@ -94,19 +94,21 @@ if __name__ == '__main__':
         decoder_output, masked_mha_attention_weights, decoder_attention_weights = decoder(
             target_sequence, encoder_output, trg_mask_tensor, src_mask_tensor
         )
-        print(decoder_output.shape, masked_mha_attention_weights.shape, decoder_attention_weights.shape, sep="\n")
+        print(f"Decoder output shape: {decoder_output.shape}, expected: {hp.BATCH_SIZE, 27, hp.D_MODEL}.")
+        print(f"Masked MHA weights shape: {masked_mha_attention_weights.shape}, expected: {hp.BATCH_SIZE, hp.HEADS, 27, 27}.")
+        print(f"Decoder attention weights shape: {decoder_attention_weights.shape}, expected: {hp.BATCH_SIZE, hp.HEADS, 27, 14}.")
 
     if run == 4:
         ############## SIMPLE TRANSFORMER  ##############################
-        input_sequence = (10 * torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN)).long()
-        target_sequence = (10 * torch.rand(hp.BATCH_SIZE, hp.MAX_SEQ_LEN)).long()
+        input_sequence = (10 * torch.rand(hp.BATCH_SIZE, 14)).long()
+        target_sequence = (10 * torch.rand(hp.BATCH_SIZE, 27)).long()
         transformer = Transformer(
             src_vocab_size=10,
-            trg_vocab_size=12,
-            seq_length=hp.MAX_SEQ_LEN,
+            trg_vocab_size=13,
             D=hp.D_MODEL,
             num_heads=hp.HEADS,
             D_ff=hp.D_FF,
+            max_seq_length=hp.MAX_SEQ_LEN,
             num_encoder_layers=hp.LAYERS,
             num_decoder_layers=hp.LAYERS
         )
@@ -114,9 +116,8 @@ if __name__ == '__main__':
             input_sequence, target_sequence
         )
         print(
-            logits.shape,
-            encoder_attention_weights.shape,
-            masked_mha_attention_weights.shape,
-            decoder_attention_weights.shape,
-            sep="\n"
+            logits.shape, " expected ", (hp.BATCH_SIZE, hp.MAX_SEQ_LEN, hp.D_MODEL), "\n",
+            encoder_attention_weights.shape, " expected ", (hp.BATCH_SIZE, hp.HEADS, 14, 14), "\n",
+            masked_mha_attention_weights.shape, " expected ", (hp.BATCH_SIZE, hp.HEADS, 27, 27), "\n",
+            decoder_attention_weights.shape, " expected ", (hp.BATCH_SIZE, hp.HEADS, 27, 14)
         )
