@@ -27,7 +27,9 @@ if __name__ == '__main__':
     if device == "cuda:0":
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
     train, test, valid, src_field, trg_field = dataset_construction_from_raw_dataset(
-        'de', 'en', os.path.join(DATA_DIR, "machine_translation_toy_dataset"),
+        'de_core_news_sm',  # 'de',
+        'en_core_web_sm',  # 'en',
+        os.path.join(DATA_DIR, "machine_translation_toy_dataset"),
         train_filename='train',
         valid_filename='val',
         test_filename='test',
@@ -57,6 +59,6 @@ if __name__ == '__main__':
         loss_fn=criterion,
         device=device,
         log_interval=3,
-        save_model=True,
-        model_path=os.path.join(os.getenv("MODELS_DIR"), "toy_transformer.pt")
+        save_model=False,
+        model_path=None  # os.path.join(os.getenv("MODELS_DIR"), "toy_transformer.pt")
     )
