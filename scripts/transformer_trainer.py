@@ -4,6 +4,7 @@ from torch.optim.adam import Adam
 from modules.transformer.dataset_build_and_train import *
 from modules.transformer.transformer import Transformer
 
+
 if __name__ == '__main__':
     DATA_DIR = '../data'  # os.getenv('DATA_DIR')
 
