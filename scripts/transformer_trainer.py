@@ -1,4 +1,6 @@
 import os
+import yaml
+import logging.config
 from torch.nn.modules import CrossEntropyLoss
 from torch.optim.adam import Adam
 from modules.transformer.dataset_build_and_train import *
@@ -7,6 +9,10 @@ from modules.transformer.transformer import Transformer
 
 if __name__ == '__main__':
     DATA_DIR = '../data'  # os.getenv('DATA_DIR')
+    LOGGING_CONFIG = "../modules/logging.yaml"
+    with open(LOGGING_CONFIG, 'r') as f:
+        config = yaml.safe_load(f)
+    logging.config.dictConfig(config)
 
 
     class HyperParams:
