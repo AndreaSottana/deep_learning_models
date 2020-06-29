@@ -5,7 +5,7 @@ disable_existing_loggers: true
 formatters:
 
   simple:
-    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format: '%(asctime)s - %(message)s'
 
   detailed:
     format: '%(asctime)s - %(levelname)s - %(name)s.%(funcName)s - %(message)s'
@@ -37,6 +37,12 @@ handlers:
     formatter: detailed
     filename: 'loggings/warning.log'
 
+  training_logger:
+    class: logging.FileHandler
+    level: INFO
+    formatter: simple
+    filename: 'loggings/training.log'
+
 
 loggers:
 
@@ -45,24 +51,29 @@ loggers:
     handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
     propagate: no
 
-  modules.sublayers:
+  modules.transformer.sublayers:
     level: DEBUG
     handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
     propagate: no
 
-  modules.encoder:
+  modules.transformer.encoder:
     level: DEBUG
     handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
     propagate: no
 
-  modules.decoder:
+  modules.transformer.decoder:
     level: DEBUG
     handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
     propagate: no
 
-  modules.transformer:
+  modules.transformer.transformer:
     level: DEBUG
     handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
+    propagate: no
+
+  modules.transformer.dataset_build_and_train:
+    level: WARNING
+    handlers: [console, debug_file_handler, training_logger, info_file_handler, warning_file_handler]
     propagate: no
 
 
