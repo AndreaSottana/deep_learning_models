@@ -10,4 +10,5 @@ The currently available models are:
 
 :white_check_mark: **Transformer**: the transformer model (including the Encoder, the Decoder and all respective 
 sublayers) as described in the paper 
-"<a target="_blank" href="https://arxiv.org/pdf/1706.03762.pdf">Attention is All You Need</a>", Dec 2017.
+"<a target="_blank" href="https://arxiv.org/pdf/1706.03762.pdf">Attention is All You Need</a>", Dec 2017.  
+    :radio_button: Transformer training function for Machine Translation tasks
