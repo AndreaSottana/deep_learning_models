@@ -2,11 +2,6 @@ import pytest
 import torch
 
 
-@pytest.fixture
-def mask_tensor():
-    return torch.rand(16, 1, 7) > 0.5
-
-
 @pytest.fixture(params=[1, 2, 8, 16, 50])
 def batch_size(request):
     return request.param
@@ -44,12 +39,12 @@ def target_sequence_length(request):
 
 @pytest.fixture
 def src_vocab_size():
-    return 123
+    return 123  # random
 
 
 @pytest.fixture
 def trg_vocab_size():
-    return 123
+    return 98  # random
 
 
 @pytest.fixture
