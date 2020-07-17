@@ -66,7 +66,7 @@ class DecoderLayer(nn.Module):
                  normalization to the position-wise feed forward layer. Dim: (batch_size, trg_sequence_length, D)
                  masked_mha_attention_weights: the attention weights of the masked multi-head attention sublayer.
                  This is a rank-4 tensor, as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, trg_sequence_length, trg_sequence_length)
+                 Dim: (batch_size, num_heads, trg_sequence_length, trg_sequence_length)
                  decoder_attention_weights: the attention weights of the second multi-head attention sublayer.
                  This is a rank-4 tensor, as the weights from multiple heads have been stacked.
                  Dim: (batch_size, num_heads, trg_sequence_length, src_sequence_length)
@@ -153,7 +153,13 @@ class Decoder(nn.Module):
             [DecoderLayer(num_heads, D, D_ff, device, dropout) for _ in range(num_layers)]
         )
 
-    def forward(self, target_sequence, encoder_output, trg_mask, src_mask):
+    def forward(
+            self,
+            target_sequence: torch.Tensor,
+            encoder_output: torch.Tensor,
+            trg_mask: torch.Tensor,
+            src_mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Implements the forward pass for the decoder.
         :param target_sequence: the target sentences, each sentence represented by numbers corresponding to the index of
@@ -170,7 +176,7 @@ class Decoder(nn.Module):
         :return: decoder_output: the output of the final decoder layer. Dim: (batch_size, trg_sequence_length, D)
                  masked_mha_attention_weights: the attention weights of the masked multi-head attention sublayer of the
                  final decoder layer. This is a rank-4 tensor, as the weights from multiple heads have been stacked.
-                 Dim: (num_heads, batch_size, trg_sequence_length, trg_sequence_length)
+                 Dim: (batch_size, num_heads, trg_sequence_length, trg_sequence_length)
                  decoder_attention_weights: the attention weights of the second multi-head attention sublayer of the
                  final decoder layer. This is a rank-4 tensor, as the weights from multiple heads have been stacked.
                  Dim: (batch_size, num_heads, trg_sequence_length, src_sequence_length)
