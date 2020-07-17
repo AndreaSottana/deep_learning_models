@@ -32,7 +32,7 @@ def input_sequence_length(request):
     return request.param  # random sequences
 
 
-@pytest.fixture(params=[6, 14, 23])
+@pytest.fixture(params=[6, 14, 25])
 def target_sequence_length(request):
     return request.param  # random sequences
 
@@ -63,5 +63,20 @@ def input_sequence(batch_size, input_sequence_length):
 
 
 @pytest.fixture
+def input_sequence_rank3(batch_size, input_sequence_length, D):
+    return 10 * torch.rand(batch_size, input_sequence_length, D)
+
+
+@pytest.fixture
 def target_sequence(batch_size, target_sequence_length):
     return (10 * torch.rand(batch_size, target_sequence_length)).long()
+
+
+@pytest.fixture
+def target_sequence_rank3(batch_size, target_sequence_length, D):
+    return 10 * torch.rand(batch_size, target_sequence_length, D)
+
+
+@pytest.fixture
+def encoder_output(batch_size, input_sequence_length, D):
+    return 10 * torch.rand(batch_size, input_sequence_length, D)
