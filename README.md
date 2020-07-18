@@ -1,4 +1,4 @@
-[![Build Badge](https://github.com/andreasottana/deep_learning_models/workflows/shapes%20%tests/badge.svg)](https://github.com/AndreaSottana/deep_learning_models/actions)
+[![Build Badge](https://github.com/andreasottana/deep_learning_models/workflows/shapes%20tests/badge.svg)](https://github.com/AndreaSottana/deep_learning_models/actions)
 
 # Deep Learning Models
 
