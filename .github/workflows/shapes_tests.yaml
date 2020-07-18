@@ -1,4 +1,4 @@
-name: build
+name: shapes tests
 
 # This workflow is triggered on push or pull request to master branch only.
 # It is also run on schedule once a week, to regularly check that the environment
