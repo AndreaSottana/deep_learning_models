@@ -8,7 +8,7 @@ def create_training_samples(input_dataset: Dict) -> List[Dict]:
     :param input_dataset: a dictionary with two keys: "data" and "version". The first value is a list where each element
            corresponds to a paragraph and all its related questions and answers.
     :return: training_samples: a list where each element is a dictionary with 6 items, including a question, a context
-             and the answer.
+             and the answer. The context is the reference text in which the answer can be found.
     """
     training_samples = []
     for article in input_dataset['data']:
