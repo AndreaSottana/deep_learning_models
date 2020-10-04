@@ -1,10 +1,6 @@
 import os
-import logging
 import wget
 import argparse
-
-
-logger = logging.getLogger(__name__)
 
 
 def download_squad_dataset(path: str):
