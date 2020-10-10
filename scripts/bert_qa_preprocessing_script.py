@@ -8,7 +8,7 @@ if __name__ == '__main__':
         dev = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, dev)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
-        tok_enc.tokenize_and_encode(100)
+        tok_enc.tokenize_and_encode(max_len=100, log_interval=1000)
     for i in [input_ids, token_type_ids, attention_masks, start_positions, end_positions]:
         print(i.shape)
     print(dropped_samples, " samples dropped.")

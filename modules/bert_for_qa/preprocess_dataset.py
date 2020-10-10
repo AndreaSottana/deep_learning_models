@@ -1,19 +1,29 @@
 import torch
-from torch import tensor
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from transformers import PreTrainedTokenizerBase
-#from .utils import format_time
+import logging
+from time import time
+from .utils import format_time
+
+
+logger = logging.getLogger(__name__)
 
 
 class DatasetEncoder:
+    """
+    This class handles all the preprocessing steps to convert the raw labelled dataset (consisting, at a minimum, of
+    context-question-answer triplets plus other optional metadata) to the tensor inputs into the BERT model for
+    fine-tuning on question answering tasks.
+    The class can be initialised using a ready-made input dataset, or via the from_dict_of_paragraphs classmethod
+    using a SQuAD-like dictionary dataset.
+    """
     def __init__(self, tokenizer: PreTrainedTokenizerBase, input_dataset: List[Dict]):
         """
-
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
-        :param input_dataset: a list where each element is a dictionary with 5 or 6 items, namely
+        :param input_dataset: a list where each element is a dictionary with 4 to 6 items, namely
                - 'answer_text': a str with the answer
                - 'context_text': a str with the full reference text in which the answer can be found,
-               - 'qas_id': a hash-like str which is unique to each question-answer pair,
+               - 'qas_id': optional, a hash-like str which is unique to each question-answer pair,
                - 'question_text': a str with the question text,
                - 'start_position_character': an int corresponding to the index of the first character of the answer in
                   the context text,
@@ -65,7 +75,9 @@ class DatasetEncoder:
                     training_samples.append(sample_dict)
         return training_samples
 
-    def tokenize_and_encode(self, max_len: int) -> Tuple[tensor, tensor, tensor, tensor, tensor, int]:
+    def tokenize_and_encode(
+            self, max_len: int, log_interval: Optional[int] = None
+    ) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor, torch.tensor, int]:
         """
         This method converts the input dataset into  a number of tensors ready to train the BERT model for question
         answering. It takes as input the maximum length to pad the text to. Any sample where the answer falls outside
@@ -75,6 +87,7 @@ class DatasetEncoder:
                time is quadratic with max_len, however if max_len is too low, more answers will fall outside the limit
                and will be truncated, making those samples unusable and therefore hurting accuracy due to the loss of
                information. GPU or CPU memory limits also need be taken into account when finding the best trade-off.
+        :param log_interval: the interval when to log the encoding status. Default: None
         :return: input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded
                  sequence pairs, with padding at the end.
                  token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
@@ -93,8 +106,13 @@ class DatasetEncoder:
         all_question_start_indices = []
         all_question_end_indices = []
 
+        t_i = time()  # initial time
         for i, sample in enumerate(self._input_dataset):
-            if i%100==0: print(i)
+            if log_interval is not None and i % log_interval == 0 and i != 0:
+                logger.warning(
+                    f"Encoding sample {i} of {len(self._input_dataset)}. Elapsed: {format_time(time() - t_i)}. "
+                    f"Remaining: {format_time((time() - t_i) / i * (len(self._input_dataset) - i))}."
+                )
             answer_tokens = self._tokenizer.tokenize(sample['answer_text'])
             answer_replacement = " ".join(["[MASK]"] * len(answer_tokens))
             start_position_character = sample['start_position_character']
