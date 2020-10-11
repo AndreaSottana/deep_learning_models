@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import logging
 from typing import Tuple
-from modules.transformer.sublayers import MultiHeadAttention, LayerNormalization, PositionWiseFeedForward
-from modules.transformer.sublayers import EmbeddingLayer, PositionalEncoding
+from .sublayers import MultiHeadAttention, LayerNormalization, PositionWiseFeedForward
+from .sublayers import EmbeddingLayer, PositionalEncoding
 
 
 logger = logging.getLogger(__name__)
