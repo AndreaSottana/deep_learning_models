@@ -1,4 +1,3 @@
-from transformers import BertForQuestionAnswering, AdamW, BertConfig, get_linear_schedule_with_warmup
 from torch.utils.data import TensorDataset, random_split, DataLoader, RandomSampler, SequentialSampler
 from .utils import set_hardware_acceleration, format_time
 from typing import Optional
@@ -11,28 +10,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def fine_tune(
+def build_dataloaders(
         input_ids: torch.Tensor,
         token_type_ids: torch.Tensor,
         attention_masks: torch.Tensor,
         start_positions: torch.Tensor,
         end_positions: torch.Tensor,
         batch_size: int,
-        training_epochs: int = 3,
         train_ratio: float = 0.9,
-        save_model_path: Optional[str] = None,
-        device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
 ):
     assert input_ids.shape == token_type_ids.shape == attention_masks.shape, "Some input shapes are wrong"
     assert input_ids.shape[0] == len(start_positions) == len(end_positions), "Some input shapes are wrong!"
-    model = BertForQuestionAnswering.from_pretrained(
-        "bert-base-cased",  # Use the 12-layer BERT model, with a cased vocab.
-        output_attentions=False,
-        output_hidden_states=False,
-    )
-    device = set_hardware_acceleration(default=device_)
-    model = model.to(device)
-    optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)  # defaults: lr=5e-5, eps=1e-8
+
     dataset = TensorDataset(
         input_ids, token_type_ids, attention_masks, start_positions, end_positions
     )
@@ -47,10 +36,21 @@ def fine_tune(
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=RandomSampler(train_dataset))  # could do with shuffle=True instead?
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, sampler=SequentialSampler(valid_dataset))
     logger.info(f"There are {len(train_dataloader)} training batches and {len(valid_dataloader)} validation batches.")
+    return train_dataloader, valid_dataloader
 
-    training_steps = training_epochs * len(train_dataloader)  # epochs * number of batches
-    lr_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=training_steps)
 
+def fine_tune_train_and_valid(
+        train_dataloader,
+        valid_dataloader,
+        model: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        training_epochs: int = 3,
+        lr_scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        save_model_path: Optional[str] = None,
+        device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
+):
+    device = set_hardware_acceleration(default=device_)
+    model = model.to(device)
     training_stats = {}
     for epoch in (range(training_epochs)):
         logger.info(f"Training epoch {epoch + 1} of {training_epochs}. Running training.")
