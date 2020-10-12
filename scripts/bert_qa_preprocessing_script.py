@@ -34,7 +34,7 @@ if __name__ == '__main__':
     training_steps = training_epochs * len(train_dataloader)  # epochs * number of batches
     lr_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=training_steps)
 
-    training_stats = fine_tune_train_and_valid(
+    model, training_stats = fine_tune_train_and_valid(
         train_dataloader,
         valid_dataloader,
         model,

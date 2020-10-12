@@ -139,4 +139,4 @@ def fine_tune_train_and_valid(
         }
     if save_model_path is not None:
         torch.save(model, save_model_path)
-    return training_stats
+    return model, training_stats
