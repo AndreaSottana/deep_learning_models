@@ -20,12 +20,12 @@ if __name__ == '__main__':
         attention_masks,
         start_positions,
         end_positions,
-        batch_size=16,
+        batch_size=(16, 16),
         train_ratio=0.9,
     )
 
     model = BertForQuestionAnswering.from_pretrained(
-        "bert-base-cased",  # Use the 12-layer BERT model, with a cased vocab.
+        "bert-base-cased",  # Use the 12-layer BERT model with pre-trained weights, with a cased vocab.
         output_attentions=False,
         output_hidden_states=False,
     )

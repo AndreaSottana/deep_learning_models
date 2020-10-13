@@ -1,6 +1,6 @@
 from torch.utils.data import TensorDataset, random_split, DataLoader, RandomSampler, SequentialSampler
 from .utils import set_hardware_acceleration, format_time
-from typing import Optional
+from typing import Optional, Union, Tuple, Dict
 from tqdm import tqdm
 from time import time
 import torch
@@ -16,9 +16,29 @@ def build_dataloaders(
         attention_masks: torch.Tensor,
         start_positions: torch.Tensor,
         end_positions: torch.Tensor,
-        batch_size: int,
+        batch_size: Tuple[int, int],
         train_ratio: float = 0.9,
-):
+) -> Tuple[DataLoader, DataLoader]:
+    """
+    Takes the pre-processed input data and returns the train and validation dataloaders with a customizable split, for
+    input into the training loop.
+    :param input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded sequence
+           pairs, with padding at the end up to max_len. If decoded, the input_ids will consist of a "[CLS]" token,
+           followed by the question's tokens, followed by a "[SEP]" token, followed by the context's tokens, followed
+           by a "[SEP]" token, followed by "[PAD]" tokens, if relevant, up to max_len.
+    :param token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
+           positions in the answer text, 0 elsewhere (i.e. in question and padding)
+    :param attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
+           non-"[PAD]" tokens, 0 for "[PAD]" tokens.
+    :param start_positions: torch.tensor of shape (N) containing the index of the first answer token for each
+    :param end_positions: torch.tensor of shape (N) containing the index of the last answer token for each answer
+    :param batch_size: a tuple of 2 integers, representing the batch size of the train and validation dataloaders
+           respectively.
+    :param train_ratio: the train / (train + validation) split ratio. Default: 0.9 (i.e. 90% of the input data will
+           go to the train dataloader and 10% to the validation dataloader). The split is random.
+    :return: train_dataloader: the Dataloader for the train dataset.
+             valid_dataloader: the Dataloader for the validation dataset.
+    """
     assert input_ids.shape == token_type_ids.shape == attention_masks.shape, "Some input shapes are wrong"
     assert input_ids.shape[0] == len(start_positions) == len(end_positions), "Some input shapes are wrong!"
 
@@ -33,8 +53,8 @@ def build_dataloaders(
     )
     train_dataset, valid_dataset = random_split(dataset, [train_size, valid_size])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=RandomSampler(train_dataset))  # could do with shuffle=True instead?
-    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, sampler=SequentialSampler(valid_dataset))
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size[0], sampler=RandomSampler(train_dataset))  # could do with shuffle=True instead?
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size[1], sampler=SequentialSampler(valid_dataset))
     logger.info(f"There are {len(train_dataloader)} training batches and {len(valid_dataloader)} validation batches.")
     return train_dataloader, valid_dataloader
 
@@ -48,7 +68,28 @@ def fine_tune_train_and_valid(
         lr_scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         save_model_path: Optional[str] = None,
         device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
-):
+) -> Tuple[torch.nn.Module, Dict[str, Dict[str, Union[float, str]]]]:
+    """
+    Performs the fine tuning of the model using the Dataloader's and returned the trained model as well as a dictionary
+    with evaluation statistics at each epochs which can be used to check overfitting and training time.
+    :param train_dataloader: the Dataloader for the train dataset.
+    :param valid_dataloader: the Dataloader for the validation dataset.
+    :param model: the model to use (must be instance of torch.nn.Module). For question answering,
+           transformers.BertForQuestionAnswering is recommended.
+    :param optimizer: the optimizer to use for the model (must be instance of torch.optim.Optimizer).
+    :param training_epochs: the number of training epochs. Default: 3.
+    :param lr_scheduler: the learning rate scheduler. If specified, must be an instance of
+           torch.optim.lr_scheduler._LRScheduler. This scheduler is responsible for updating the learning rate over
+           the course of the training. It is preferable for the learning rate to gradually get smaller and smaller so
+           that training makes gradually finer adjustments to the weights as the loss gets smaller. Default: None.
+    :param save_model_path: if specified, the path where to save the model (should have '.pt' extension). Default: None.
+    :param device_: if specified, the device used for the computations. Can be one of cpu, cuda, mkldnn, opengl,
+           opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it will
+           use a CPU. Default: None
+    :return: model: the fine tuned model.
+             training_stats: a dictionary with a nuumber of statistics. For each epoch, the training loss, validation
+             loss, validation accuracy, training time and validation time are included.
+    """
     device = set_hardware_acceleration(default=device_)
     model = model.to(device)
     training_stats = {}
@@ -93,7 +134,7 @@ def fine_tune_train_and_valid(
         true_end = torch.tensor([], dtype=torch.long, device=device)
 
         cumulative_eval_loss_per_epoch = 0
-        cumulative_eval_accuracy_per_epoch = 0
+        cumulative_eval_accuracy_per_epoch = 0  # WE DO THIS DIFFERENTLY. SHALL WE REMOVE THIS?
 
         for batch_num, batch in tqdm(enumerate(valid_dataloader), total=len(valid_dataloader)):
             logger.info(f"Running validation batch {batch_num + 1} of {len(valid_dataloader)}.")
