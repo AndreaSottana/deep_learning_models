@@ -21,13 +21,13 @@ class DatasetEncoder:
     def __init__(self, tokenizer: PreTrainedTokenizerBase, input_dataset: List[Dict]):
         """
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
-        :param input_dataset: a list where each element is a dictionary with 4 to 6 items, namely
-               - 'answer_text': a str with the answer
+        :param input_dataset: a list where each element is a dictionary with 3 to 5 items, namely
+               - 'answers': a list of dictionaries, where each dictionary contains two str keys, namely 'text' with
+                 the answer text and 'answer_start' with the index of the first answer character. Some datasets will
+                 have one answer per question, whereas others might have multiple valid answers.
                - 'context_text': a str with the full reference text in which the answer can be found,
                - 'qas_id': optional, a hash-like str which is unique to each question-answer pair,
                - 'question_text': a str with the question text,
-               - 'start_position_character': an int corresponding to the index of the first character of the answer in
-                  the context text,
                - 'title': optional (for SQuAD only): a str with the title of the article where the context is taken
                  from. This is not used directly and is for reference purposes only.
         """
@@ -76,17 +76,23 @@ class DatasetEncoder:
         return training_samples
 
     def tokenize_and_encode(
-            self, max_len: int, return_torch_tensors_for_training: bool = True, log_interval: Optional[int] = None
+            self, max_len: int, start_end_positions_as_tensors: bool = True, log_interval: Optional[int] = None
     ) -> Tuple[Tensor, Tensor, Tensor, Union[List[List[Tensor]], Tensor], Union[List[List[Tensor]], Tensor], int]:
         """
         This method converts the input dataset into  a number of tensors ready to train the BERT model for question
         answering. It takes as input the maximum length to pad the text to. Any sample where the answer falls outside
         (or partially outside) the question + answer sentence pair after its truncation to max_len is dropped from the
         dataset. The remaining N samples are tokenized and encoded.
+        If using a test dataset, multiple valid answers can be provided, in which case some tensors will be returned
+        as lists instead (see below).
         :param max_len: an int; the maximum length to pad the question + answer sentence pair sequence to. Training
                time is quadratic with max_len, however if max_len is too low, more answers will fall outside the limit
                and will be truncated, making those samples unusable and therefore hurting accuracy due to the loss of
                information. GPU or CPU memory limits also need be taken into account when finding the best trade-off.
+        :param start_end_positions_as_tensors: a boolean specifying whether start_positions and end_positions should be
+               returned as tensors. Default: True. If False, they will be returned as lists. Please note: if True, only
+               one valid answer per question must be provided (usually this is the case during training). If multiple
+               valid answers are provided (usually during testing), set value to False.
         :param log_interval: the interval when to log the encoding status. Default: None
         :return: input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded
                  sequence pairs, with padding at the end.
@@ -94,13 +100,17 @@ class DatasetEncoder:
                  positions in the context text, 0 elsewhere (i.e. in question and padding)
                  attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
                  non-"[PAD]" tokens, 0 for "[PAD]" tokens.
-                 start_positions: torch.tensor of shape (N, m) containing the index of the first answer token for each
-                 answer, where m is the number of possible correct answers given to the model (m should be 1 for
-                 training but can be higher for testing).
-                 end_positions: torch.tensor of shape (N, m) containing the index of the last answer token for each answer
-                 dropped_samples: int, the number of samples dropped from the dataset due to the answer falling outside
-                 (or partially outside) the question + answer sentence pair truncated to max_len. For N encoded
-                 sequence pairs, dropped_samples = len(training_samples) - N
+                 start_positions: if start_end_positions_as_tensors=True, this is a torch.tensor of shape (N)
+                 containing the index of the first answer token for each answer. Otherwise, this is a list of list,
+                 where each inner list contains m torch.tensors, where m is the number of possible correct answers.
+                 Note that m can vary for each inner list depending on how many valid answers each question has.
+                 Given this variability, it is not possible to convert the outer list to a tensor as the inner lists
+                 have variable lengths.
+                 end_positions: same as start_positions but for the last answer token for each answer.
+                 dropped_samples: int, the number of samples dropped from the dataset due to the answer (or at least
+                 one of the possible answers, if multiple valid answers are given) falling outside (or partially
+                 outside) the question + answer sentence pair after truncation to max_len. For N encoded sequence pairs,
+                 dropped_samples = len(training_samples) - N
         """
         dropped_samples = 0
         all_encoded_dicts = []
@@ -109,11 +119,11 @@ class DatasetEncoder:
 
         t_i = time()  # initial time
         for i, sample in enumerate(self._input_dataset):
-            if return_torch_tensors_for_training and len(sample['answers']) != 1:
+            if start_end_positions_as_tensors and len(sample['answers']) != 1:
                 raise IndexError(
                     f"In order to return torch tensors for training, each question must have only one possible "
                     f"answers. If tokenizing questions with multiple valid answers for testing, please set "
-                    f"return_torch_tensors_for_training=False."
+                    f"start_end_positions_as_tensors=False."
                 )
             if log_interval is not None and i % log_interval == 0 and i != 0:
                 logger.warning(
@@ -169,7 +179,7 @@ class DatasetEncoder:
         input_ids = torch.cat([encoded_dict['input_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         token_type_ids = torch.cat([encoded_dict['token_type_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         attention_masks = torch.cat([encoded_dict['attention_mask'] for encoded_dict in all_encoded_dicts], dim=0)
-        if return_torch_tensors_for_training:
+        if start_end_positions_as_tensors:
             all_q_start_positions = torch.tensor(all_q_start_positions).squeeze()
             all_q_end_positions = torch.tensor(all_q_end_positions).squeeze()
         print(all_q_end_positions[0])

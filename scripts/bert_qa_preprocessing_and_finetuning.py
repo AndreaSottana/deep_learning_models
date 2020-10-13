@@ -9,7 +9,7 @@ if __name__ == '__main__':
         train = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, train)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
-        tok_enc.tokenize_and_encode(max_len=384, return_torch_tensors_for_training=True, log_interval=1000)
+        tok_enc.tokenize_and_encode(max_len=384, start_end_positions_as_tensors=True, log_interval=1000)
     for i in [input_ids, token_type_ids, attention_masks, start_positions, end_positions]:
         try:
             print(i.shape)
