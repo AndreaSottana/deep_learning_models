@@ -51,7 +51,7 @@ class DatasetEncoder:
         return training_samples
 
     @staticmethod
-    def _create_training_samples_from_dict_of_paragraphs(input_dict: Dict, set_: str) -> List[Dict]:
+    def _create_training_samples_from_dict_of_paragraphs(input_dict: Dict) -> List[Dict]:
         """
         This is called by the from_dict_of_paragraphs class method when instantiating the class with a SQuAD-like
         dataset, and it converts the dataset into a format which is more readily usable for our fine-tuning.
@@ -90,12 +90,13 @@ class DatasetEncoder:
         :return: input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded
                  sequence pairs, with padding at the end.
                  token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
-                 positions in the answer text, 0 elsewhere (i.e. in question and padding)
+                 positions in the context text, 0 elsewhere (i.e. in question and padding)
                  attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
                  non-"[PAD]" tokens, 0 for "[PAD]" tokens.
-                 start_positions: torch.tensor of shape (N) containing the index of the first answer token for each
-                 answer
-                 end_positions: torch.tensor of shape (N) containing the index of the last answer token for each answer
+                 start_positions: torch.tensor of shape (N, m) containing the index of the first answer token for each
+                 answer, where m is the number of possible correct answers given to the model (m should be 1 for
+                 training but can be higher for testing).
+                 end_positions: torch.tensor of shape (N, m) containing the index of the last answer token for each answer
                  dropped_samples: int, the number of samples dropped from the dataset due to the answer falling outside
                  (or partially outside) the question + answer sentence pair truncated to max_len. For N encoded
                  sequence pairs, dropped_samples = len(training_samples) - N
@@ -154,10 +155,12 @@ class DatasetEncoder:
             all_encoded_dicts.append(encoded_dict)
             all_question_start_indices.append(possible_starts)
             all_question_end_indices.append(possible_ends)
+        print(len(all_encoded_dicts), len(self._input_dataset) - dropped_samples, len(self._input_dataset), dropped_samples)
+        print(all_question_end_indices[:10])
         assert len(all_encoded_dicts) == len(self._input_dataset) - dropped_samples, "Lengths check failed!"
         input_ids = torch.cat([encoded_dict['input_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         token_type_ids = torch.cat([encoded_dict['token_type_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         attention_masks = torch.cat([encoded_dict['attention_mask'] for encoded_dict in all_encoded_dicts], dim=0)
-        start_positions = torch.cat(all_question_start_indices, dim=0)
-        end_positions = torch.cat(all_question_end_indices, dim=0)
+        start_positions = torch.tensor(all_question_start_indices)  # torch.cat(all_question_start_indices, dim=0)
+        end_positions = torch.tensor(all_question_end_indices)  # torch.cat(all_question_end_indices, dim=0)
         return input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples
