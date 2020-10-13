@@ -1,5 +1,6 @@
 import torch
-from typing import Dict, List, Tuple, Optional
+from torch import Tensor
+from typing import Dict, List, Tuple, Optional, Union
 from transformers import PreTrainedTokenizerBase
 import logging
 from time import time
@@ -75,8 +76,8 @@ class DatasetEncoder:
         return training_samples
 
     def tokenize_and_encode(
-            self, max_len: int, log_interval: Optional[int] = None
-    ) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor, torch.tensor, int]:
+            self, max_len: int, return_torch_tensors_for_training: bool = True, log_interval: Optional[int] = None
+    ) -> Tuple[Tensor, Tensor, Tensor, Union[List[List[Tensor]], Tensor], Union[List[List[Tensor]], Tensor], int]:
         """
         This method converts the input dataset into  a number of tensors ready to train the BERT model for question
         answering. It takes as input the maximum length to pad the text to. Any sample where the answer falls outside
@@ -103,19 +104,26 @@ class DatasetEncoder:
         """
         dropped_samples = 0
         all_encoded_dicts = []
-        all_question_start_indices = []
-        all_question_end_indices = []
+        all_q_start_positions = []
+        all_q_end_positions = []
 
         t_i = time()  # initial time
         for i, sample in enumerate(self._input_dataset):
+            if return_torch_tensors_for_training and len(sample['answers']) != 1:
+                raise IndexError(
+                    f"In order to return torch tensors for training, each question must have only one possible "
+                    f"answers. If tokenizing questions with multiple valid answers for testing, please set "
+                    f"return_torch_tensors_for_training=False."
+                )
             if log_interval is not None and i % log_interval == 0 and i != 0:
                 logger.warning(
                     f"Encoding sample {i} of {len(self._input_dataset)}. Elapsed: {format_time(time() - t_i)}. "
                     f"Remaining: {format_time((time() - t_i) / i * (len(self._input_dataset) - i))}."
                 )
+            possible_starts = []
+            possible_ends = []
+            # in dev sets with more than one possible answer, it records if some but not all valid answers are truncated
             for possible_answer in sample['answers']:
-                possible_starts = []
-                possible_ends = []
                 answer_tokens = self._tokenizer.tokenize(possible_answer['text'])
                 answer_replacement = " ".join(["[MASK]"] * len(answer_tokens))
                 start_position_character = possible_answer['answer_start']
@@ -140,8 +148,7 @@ class DatasetEncoder:
                 is_mask_token = encoded_dict['input_ids'].squeeze() == self._tokenizer.mask_token_id
                 mask_token_indices = is_mask_token.nonzero(as_tuple=False)
                 if len(mask_token_indices) != len(answer_tokens):
-                    dropped_samples += 1  # we drop sample due to answer being truncated
-                    continue
+                    continue  # ignore cases where start or end of answer exceed max_len and have been truncated
                 question_start_index, question_end_index = mask_token_indices[0], mask_token_indices[-1]
                 possible_starts.append(question_start_index)
                 possible_ends.append(question_end_index)
@@ -150,17 +157,20 @@ class DatasetEncoder:
                     add_special_tokens=False,
                     return_tensors='pt'
                 )
+            if len(sample['answers']) != len(possible_starts) or len(sample['answers']) != len(possible_ends):
+                dropped_samples += 1  # we drop sample due to answer being truncated
+                continue
             encoded_dict['input_ids'][0, question_start_index:question_end_index + 1] = answer_token_ids
             # Finally, replace the "[MASK]" tokens with the actual answer tokens
             all_encoded_dicts.append(encoded_dict)
-            all_question_start_indices.append(possible_starts)
-            all_question_end_indices.append(possible_ends)
-        print(len(all_encoded_dicts), len(self._input_dataset) - dropped_samples, len(self._input_dataset), dropped_samples)
-        print(all_question_end_indices[:10])
+            all_q_start_positions.append(possible_starts)
+            all_q_end_positions.append(possible_ends)
         assert len(all_encoded_dicts) == len(self._input_dataset) - dropped_samples, "Lengths check failed!"
         input_ids = torch.cat([encoded_dict['input_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         token_type_ids = torch.cat([encoded_dict['token_type_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         attention_masks = torch.cat([encoded_dict['attention_mask'] for encoded_dict in all_encoded_dicts], dim=0)
-        start_positions = torch.tensor(all_question_start_indices)  # torch.cat(all_question_start_indices, dim=0)
-        end_positions = torch.tensor(all_question_end_indices)  # torch.cat(all_question_end_indices, dim=0)
-        return input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples
+        if return_torch_tensors_for_training:
+            all_q_start_positions = torch.tensor(all_q_start_positions).squeeze()
+            all_q_end_positions = torch.tensor(all_q_end_positions).squeeze()
+        print(all_q_end_positions[0])
+        return input_ids, token_type_ids, attention_masks, all_q_start_positions, all_q_end_positions, dropped_samples

@@ -5,13 +5,16 @@ from modules.bert_for_qa.fine_tuning import build_dataloaders, fine_tune_train_a
 if __name__ == '__main__':
     tokenizerr = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
     import json
-    with open("../data/SQuAD/dev-v1.1-small.json", "r") as f:
+    with open("../data/SQuAD/train-v1.1-small.json", "r") as f:
         train = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, train)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
-        tok_enc.tokenize_and_encode(max_len=384, log_interval=1000)
+        tok_enc.tokenize_and_encode(max_len=384, return_torch_tensors_for_training=True, log_interval=1000)
     for i in [input_ids, token_type_ids, attention_masks, start_positions, end_positions]:
-        print(i.shape)
+        try:
+            print(i.shape)
+        except AttributeError:
+            print(len(i))
     print(dropped_samples, " samples dropped.")
 
     # train_dataloader, valid_dataloader = build_dataloaders(
