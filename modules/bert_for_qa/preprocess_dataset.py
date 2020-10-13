@@ -40,38 +40,51 @@ class DatasetEncoder:
         return self._input_dataset[item]
 
     @classmethod
-    def from_dict_of_paragraphs(cls, tokenizer: PreTrainedTokenizerBase, input_dataset: Dict):
+    def from_dict_of_paragraphs(cls, tokenizer: PreTrainedTokenizerBase, input_dataset: Dict, set_: str):
         """
         A classmethod to instantiate the class from a SQuAD-like dictionary dataset.
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
         :param input_dataset: passed as argument of _create_training_samples_from_dict_of_paragraphs
+        :param set_: whether to use the train or development (test) set. It accepts 'train' or 'dev' as entries. They
+               are dealt with differently because the training set has one answer per question, whereas the dev set
+               has three possible correct answers per question.
         :return: an instance of DatasetEncoder ready for use.
         """
-        training_samples = cls(tokenizer, cls._create_training_samples_from_dict_of_paragraphs(input_dataset))
+        training_samples = cls(tokenizer, cls._create_training_samples_from_dict_of_paragraphs(input_dataset, set_))
         return training_samples
 
     @staticmethod
-    def _create_training_samples_from_dict_of_paragraphs(input_dict: Dict) -> List[Dict]:
+    def _create_training_samples_from_dict_of_paragraphs(input_dict: Dict, set_: str) -> List[Dict]:
         """
         This is called by the from_dict_of_paragraphs class method when instantiating the class with a SQuAD-like
         dataset, and it converts the dataset into a format which is more readily usable for our fine-tuning.
         :param input_dict: a dictionary with two keys: "data" and "version". The first value is a list where each
                element corresponds to a paragraph and all its related questions and answers.
-        :return: training_samples: a list where each element is a dictionary with 6 items, including a question, a
+        :return: training_samples: a list where each element is a dictionary with 5 or 6 items, including a question, a
                  context and the answer. The context is the reference text in which the answer can be found.
         """
+        assert any([set_ == i for i in ('train', 'dev')]), f"set_ must be either 'train' or 'dev'. Got {set_} instead."
         training_samples = []
         for article in input_dict['data']:
             for paragraph in article['paragraphs']:
                 for qas in paragraph['qas']:  # each paragraph has multiple questions and answers associated
-                    sample_dict = {
-                        'answer_text': qas['answers'][0]['text'],
-                        'context_text': paragraph['context'],
-                        'qas_id': qas['id'],
-                        'question_text': qas['question'],
-                        'start_position_character': qas['answers'][0]['answer_start'],
-                        'title': article['title']
-                    }
+                    if set_ == "train":
+                        sample_dict = {
+                            'answer_text': qas['answers'][0]['text'],
+                            'context_text': paragraph['context'],
+                            'qas_id': qas['id'],
+                            'question_text': qas['question'],
+                            'start_position_character': qas['answers'][0]['answer_start'],
+                            'title': article['title']
+                        }
+                    else:  # dev set has three possible correct answers instead of one.
+                        sample_dict = {
+                            'answers': qas['answers'],
+                            'context_text': paragraph['context'],
+                            'qas_id': qas['id'],
+                            'question_text': qas['question'],
+                            'title': article['title']
+                        }
                     training_samples.append(sample_dict)
         return training_samples
 
