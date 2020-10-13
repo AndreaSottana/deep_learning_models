@@ -40,17 +40,14 @@ class DatasetEncoder:
         return self._input_dataset[item]
 
     @classmethod
-    def from_dict_of_paragraphs(cls, tokenizer: PreTrainedTokenizerBase, input_dataset: Dict, set_: str):
+    def from_dict_of_paragraphs(cls, tokenizer: PreTrainedTokenizerBase, input_dataset: Dict):
         """
         A classmethod to instantiate the class from a SQuAD-like dictionary dataset.
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
         :param input_dataset: passed as argument of _create_training_samples_from_dict_of_paragraphs
-        :param set_: whether to use the train or development (test) set. It accepts 'train' or 'dev' as entries. They
-               are dealt with differently because the training set has one answer per question, whereas the dev set
-               has three possible correct answers per question.
         :return: an instance of DatasetEncoder ready for use.
         """
-        training_samples = cls(tokenizer, cls._create_training_samples_from_dict_of_paragraphs(input_dataset, set_))
+        training_samples = cls(tokenizer, cls._create_training_samples_from_dict_of_paragraphs(input_dataset))
         return training_samples
 
     @staticmethod
@@ -63,28 +60,17 @@ class DatasetEncoder:
         :return: training_samples: a list where each element is a dictionary with 5 or 6 items, including a question, a
                  context and the answer. The context is the reference text in which the answer can be found.
         """
-        assert any([set_ == i for i in ('train', 'dev')]), f"set_ must be either 'train' or 'dev'. Got {set_} instead."
         training_samples = []
         for article in input_dict['data']:
             for paragraph in article['paragraphs']:
                 for qas in paragraph['qas']:  # each paragraph has multiple questions and answers associated
-                    if set_ == "train":
-                        sample_dict = {
-                            'answer_text': qas['answers'][0]['text'],
-                            'context_text': paragraph['context'],
-                            'qas_id': qas['id'],
-                            'question_text': qas['question'],
-                            'start_position_character': qas['answers'][0]['answer_start'],
-                            'title': article['title']
-                        }
-                    else:  # dev set has three possible correct answers instead of one.
-                        sample_dict = {
-                            'answers': qas['answers'],
-                            'context_text': paragraph['context'],
-                            'qas_id': qas['id'],
-                            'question_text': qas['question'],
-                            'title': article['title']
-                        }
+                    sample_dict = {
+                        'answers': qas['answers'],
+                        'context_text': paragraph['context'],
+                        'qas_id': qas['id'],
+                        'question_text': qas['question'],
+                        'title': article['title']
+                    }
                     training_samples.append(sample_dict)
         return training_samples
 
@@ -126,43 +112,48 @@ class DatasetEncoder:
                     f"Encoding sample {i} of {len(self._input_dataset)}. Elapsed: {format_time(time() - t_i)}. "
                     f"Remaining: {format_time((time() - t_i) / i * (len(self._input_dataset) - i))}."
                 )
-            answer_tokens = self._tokenizer.tokenize(sample['answer_text'])
-            answer_replacement = " ".join(["[MASK]"] * len(answer_tokens))
-            start_position_character = sample['start_position_character']
-            end_position_character = sample['start_position_character'] + len(sample['answer_text'])
-            context_with_replacement = sample['context_text'][:start_position_character] + answer_replacement + \
-                sample['context_text'][end_position_character:]
-            encoded_dict = self._tokenizer.encode_plus(
-                sample['question_text'],
-                context_with_replacement,
-                add_special_tokens=True,  # Add '[CLS]' and '[SEP]' tokens
-                max_length=max_len,
-                padding='max_length',  # Pad or truncates sentences to `max_length`
-                truncation=True,
-                return_attention_mask=True,  # Construct attention masks.
-                return_tensors='pt',  # Return pytorch tensors.
-            )
-            '''A dictionary containing the sequence pair and additional information. There are 3 keys, each value is a 
-            torch.tensor of shape (1, max_len) and can be converted to just (max_len) by applying .squeeze():
-            - 'input_ids': the ids of each token of the encoded sequence pair, with padding at the end
-            - 'token_type_ids': 1 for token positions in  answer text, 0 elsewhere (i.e. in question and padding)
-            - 'attention_mask': 1 for non "[PAD]" token, 0 for "[PAD]" tokens.'''
-            is_mask_token = encoded_dict['input_ids'].squeeze() == self._tokenizer.mask_token_id
-            mask_token_indices = is_mask_token.nonzero(as_tuple=False)
-            if len(mask_token_indices) != len(answer_tokens):
-                dropped_samples += 1  # we drop sample due to answer being truncated
-                continue
-            question_start_index, question_end_index = mask_token_indices[0], mask_token_indices[-1]
-            answer_token_ids = self._tokenizer.encode(
-                sample['answer_text'],
-                add_special_tokens=False,
-                return_tensors='pt'
-            )
+            for possible_answer in sample['answers']:
+                possible_starts = []
+                possible_ends = []
+                answer_tokens = self._tokenizer.tokenize(possible_answer['text'])
+                answer_replacement = " ".join(["[MASK]"] * len(answer_tokens))
+                start_position_character = possible_answer['answer_start']
+                end_position_character = possible_answer['answer_start'] + len(possible_answer['text'])
+                context_with_replacement = sample['context_text'][:start_position_character] + answer_replacement + \
+                    sample['context_text'][end_position_character:]
+                encoded_dict = self._tokenizer.encode_plus(
+                    sample['question_text'],
+                    context_with_replacement,
+                    add_special_tokens=True,  # Add '[CLS]' and '[SEP]' tokens
+                    max_length=max_len,
+                    padding='max_length',  # Pad or truncates sentences to `max_length`
+                    truncation=True,
+                    return_attention_mask=True,  # Construct attention masks.
+                    return_tensors='pt',  # Return pytorch tensors.
+                )
+                '''A dictionary containing the sequence pair and additional information. There are 3 keys, each value is a 
+                torch.tensor of shape (1, max_len) and can be converted to just (max_len) by applying .squeeze():
+                - 'input_ids': the ids of each token of the encoded sequence pair, with padding at the end
+                - 'token_type_ids': 1 for token positions in  answer text, 0 elsewhere (i.e. in question and padding)
+                - 'attention_mask': 1 for non "[PAD]" token, 0 for "[PAD]" tokens.'''
+                is_mask_token = encoded_dict['input_ids'].squeeze() == self._tokenizer.mask_token_id
+                mask_token_indices = is_mask_token.nonzero(as_tuple=False)
+                if len(mask_token_indices) != len(answer_tokens):
+                    dropped_samples += 1  # we drop sample due to answer being truncated
+                    continue
+                question_start_index, question_end_index = mask_token_indices[0], mask_token_indices[-1]
+                possible_starts.append(question_start_index)
+                possible_ends.append(question_end_index)
+                answer_token_ids = self._tokenizer.encode(
+                    possible_answer['text'],
+                    add_special_tokens=False,
+                    return_tensors='pt'
+                )
             encoded_dict['input_ids'][0, question_start_index:question_end_index + 1] = answer_token_ids
             # Finally, replace the "[MASK]" tokens with the actual answer tokens
             all_encoded_dicts.append(encoded_dict)
-            all_question_start_indices.append(question_start_index)
-            all_question_end_indices.append(question_end_index)
+            all_question_start_indices.append(possible_starts)
+            all_question_end_indices.append(possible_ends)
         assert len(all_encoded_dicts) == len(self._input_dataset) - dropped_samples, "Lengths check failed!"
         input_ids = torch.cat([encoded_dict['input_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         token_type_ids = torch.cat([encoded_dict['token_type_ids'] for encoded_dict in all_encoded_dicts], dim=0)
