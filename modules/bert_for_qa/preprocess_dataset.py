@@ -31,6 +31,9 @@ class DatasetEncoder:
                - 'title': optional (for SQuAD only): a str with the title of the article where the context is taken
                  from. This is not used directly and is for reference purposes only.
         """
+        expected_keys = ['answers', 'context_text', 'question_text']
+        assert all([key in dict_.keys() for key in expected_keys for dict_ in input_dataset]), \
+            f"Each dictionary item in the input_dataset list must contain the following keys: {expected_keys}."
         self._tokenizer = tokenizer
         self._input_dataset = input_dataset
 
@@ -150,8 +153,8 @@ class DatasetEncoder:
                     return_attention_mask=True,  # Construct attention masks.
                     return_tensors='pt',  # Return pytorch tensors.
                 )
-                '''A dictionary containing the sequence pair and additional information. There are 3 keys, each value is a 
-                torch.tensor of shape (1, max_len) and can be converted to just (max_len) by applying .squeeze():
+                '''A dictionary containing the sequence pair and additional information. There are 3 keys, each value 
+                is a torch.tensor of shape (1, max_len) and can be converted to just (max_len) by applying .squeeze():
                 - 'input_ids': the ids of each token of the encoded sequence pair, with padding at the end
                 - 'token_type_ids': 1 for token positions in  answer text, 0 elsewhere (i.e. in question and padding)
                 - 'attention_mask': 1 for non "[PAD]" token, 0 for "[PAD]" tokens.'''
@@ -182,5 +185,9 @@ class DatasetEncoder:
         if start_end_positions_as_tensors:
             all_q_start_positions = torch.tensor(all_q_start_positions).squeeze()
             all_q_end_positions = torch.tensor(all_q_end_positions).squeeze()
-        print(all_q_end_positions[0])
+        if dropped_samples > 0:
+            logger.warning(
+                f"Dropped {dropped_samples} question+context pair samples from the dataset because the start or end "
+                f"token of the answer was at an unreachable position exceeding the max_len ({max_len})."
+            )
         return input_ids, token_type_ids, attention_masks, all_q_start_positions, all_q_end_positions, dropped_samples
