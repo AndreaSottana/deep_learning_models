@@ -1,6 +1,6 @@
-from transformers import BertTokenizer, BertForQuestionAnswering, AdamW, get_linear_schedule_with_warmup
+from transformers import BertTokenizer, BertForQuestionAnswering, AdamW
 from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
-from modules.bert_for_qa.fine_tuning import build_dataloaders, fine_tune_train_and_eval
+from modules.bert_for_qa.fine_tuning import fine_tune_train_and_eval
 
 if __name__ == '__main__':
     tokenizerr = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
@@ -17,32 +17,25 @@ if __name__ == '__main__':
             print(len(i))
     print(dropped_samples, " samples dropped.")
 
-    # train_dataloader, valid_dataloader = build_dataloaders(
-    #     input_ids,
-    #     token_type_ids,
-    #     attention_masks,
-    #     start_positions,
-    #     end_positions,
-    #     batch_size=(16, 16),
-    #     train_ratio=0.9,
-    # )
-    #
-    # model = BertForQuestionAnswering.from_pretrained(
-    #     "bert-base-cased",  # Use the 12-layer BERT model with pre-trained weights, with a cased vocab.
-    #     output_attentions=False,
-    #     output_hidden_states=False,
-    # )
-    # optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)  # defaults: lr=5e-5, eps=1e-8
-    # training_epochs = 3
-    # training_steps = training_epochs * len(train_dataloader)  # epochs * number of batches
-    # lr_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=training_steps)
-    #
-    # model, training_stats = fine_tune_train_and_eval(
-    #     train_dataloader,
-    #     valid_dataloader,
-    #     model,
-    #     optimizer,
-    #     training_epochs=training_epochs,
-    #     lr_scheduler=None,
-    #     save_model_path="trained_model.pt"
-    # )
+    model = BertForQuestionAnswering.from_pretrained(
+        "bert-base-cased",  # Use the 12-layer BERT model with pre-trained weights, with a cased vocab.
+        output_attentions=False,
+        output_hidden_states=False,
+    )
+    optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)  # defaults: lr=5e-5, eps=1e-8
+
+    model, training_stats = fine_tune_train_and_eval(
+        input_ids,
+        token_type_ids,
+        attention_masks,
+        start_positions,
+        end_positions,
+        batch_size=(16, 16),
+        model=model,
+        optimizer=optimizer,
+        train_ratio=0.9,
+        training_epochs=3,
+        lr_scheduler=lr_scheduler,
+        save_model_path="trained_model.pt",
+        save_stats_dict_path="statistics.json"
+    )

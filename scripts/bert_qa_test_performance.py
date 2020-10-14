@@ -1,6 +1,6 @@
+import torch
 from transformers import BertTokenizer
 from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
-import torch
 from modules.bert_for_qa.prediction_loop import predict
 from modules.bert_for_qa.scores import exact_match_rate, f1_score
 
