@@ -1,6 +1,6 @@
 from transformers import BertTokenizer, BertForQuestionAnswering, AdamW, get_linear_schedule_with_warmup
 from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
-from modules.bert_for_qa.fine_tuning import build_dataloaders, fine_tune_train_and_valid
+from modules.bert_for_qa.fine_tuning import build_dataloaders, fine_tune_train_and_eval
 
 if __name__ == '__main__':
     tokenizerr = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
@@ -9,7 +9,7 @@ if __name__ == '__main__':
         train = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, train)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
-        tok_enc.tokenize_and_encode(max_len=384, start_end_positions_as_tensors=True, log_interval=1000)
+        tok_enc.tokenize_and_encode(max_len=384, start_end_positions_as_tensors=False, log_interval=1000)
     for i in [input_ids, token_type_ids, attention_masks, start_positions, end_positions]:
         try:
             print(i.shape)
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # training_steps = training_epochs * len(train_dataloader)  # epochs * number of batches
     # lr_scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=training_steps)
     #
-    # model, training_stats = fine_tune_train_and_valid(
+    # model, training_stats = fine_tune_train_and_eval(
     #     train_dataloader,
     #     valid_dataloader,
     #     model,
