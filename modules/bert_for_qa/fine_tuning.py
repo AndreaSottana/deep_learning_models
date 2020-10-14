@@ -59,7 +59,7 @@ def build_dataloaders(
     return train_dataloader, valid_dataloader
 
 
-def fine_tune_train_and_valid(
+def fine_tune_train_and_eval(
         train_dataloader,
         valid_dataloader,
         model: torch.nn.Module,
@@ -87,7 +87,7 @@ def fine_tune_train_and_valid(
            opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it will
            use a CPU. Default: None
     :return: model: the fine tuned model.
-             training_stats: a dictionary with a nuumber of statistics. For each epoch, the training loss, validation
+             training_stats: a dictionary with a number of statistics. For each epoch, the training loss, validation
              loss, validation accuracy, training time and validation time are included.
     """
     device = set_hardware_acceleration(default=device_)
