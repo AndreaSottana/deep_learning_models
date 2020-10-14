@@ -9,8 +9,8 @@ def exact_match_rate(
         pred_start: torch.Tensor,
         pred_end: torch.Tensor
 ):
-    assert real_start.shape == real_end.shape, "real_start and real_end shapes do not match."
-    assert len(pred_start) == len(pred_end), "pred_start and pred_end lengths do not match."
+    assert len(real_start) == len(real_end), "real_start and real_end shapes do not match."
+    assert pred_start.shape == pred_end.shape, "pred_start and pred_end lengths do not match."
     assert len(real_start) == len(pred_start), \
         f"Datasets mismatch: {len(real_start)} correct labels and {len(pred_start)} predictions were provided."
 
@@ -31,7 +31,7 @@ def exact_match_rate(
             if pred_end_sample == real_end_sample:
                 matches += 1
             match_options.append(matches)
-            correct += max(match_options
+        correct += max(match_options)
     match_rate = correct / total_indices
     return correct, total_indices, match_rate
 
@@ -57,15 +57,18 @@ def f1_score(
         for real_start_sample, real_end_sample in zip(real_start[i], real_end[i]):
 
             real_indices = set(range(real_start_sample, real_end_sample + 1))  # consider adding int() around tensors
-            num_same_tokens = real_indices.intersection(pred_indices)
+            correctly_pred_indices = real_indices.intersection(pred_indices)
+            if correctly_pred_indices == set():
+                f1_options.append(0)
+                continue  # f1 is 0 if there's no overlap. Loop cannot continue to avoid division by zero error.
 
-            precision = num_same_tokens / len(pred_indices)
-            recall = num_same_tokens / len(real_indices)
+            precision = len(correctly_pred_indices) / len(pred_indices)
+            recall = len(correctly_pred_indices) / len(real_indices)
             f1_sample = (2 * precision * recall) / (precision + recall)
             f1_options.append(f1_sample)
         all_f1.append(max(f1_options))
 
-        average_f1 = np.mean(all_f1)
-        return all_f1, average_f1
+    average_f1 = np.mean(all_f1)
+    return all_f1, average_f1
 
 

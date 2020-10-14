@@ -32,7 +32,7 @@ def predict(
 
     t_i = time()
     # batch the samples to speed up processing. We do batching manually here to avoid using DataLoader
-    for batch_i in tqdm(range(0, len(input_ids), step=batch_size)):
+    for batch_i in tqdm(range(0, len(input_ids), batch_size)):
         batch_input_ids = input_ids[batch_i:batch_i + batch_size, :].to(device)
         batch_token_type_ids = token_type_ids[batch_i:batch_i + batch_size, :].to(device)
         batch_attention_masks = attention_masks[batch_i:batch_i + batch_size, :].to(device)
