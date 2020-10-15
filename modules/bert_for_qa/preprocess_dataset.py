@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Optional, Union
 from transformers import PreTrainedTokenizerBase
 import logging
 from time import time
-from .utils import format_time
+from .utils import format_time, set_hardware_acceleration
 
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,11 @@ class DatasetEncoder:
         return training_samples
 
     def tokenize_and_encode(
-            self, max_len: int, start_end_positions_as_tensors: bool = True, log_interval: Optional[int] = None
+            self,
+            max_len: int,
+            start_end_positions_as_tensors: bool = True,
+            log_interval: Optional[int] = None,
+            device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
     ) -> Tuple[Tensor, Tensor, Tensor, Union[List[List[Tensor]], Tensor], Union[List[List[Tensor]], Tensor], int]:
         """
         This method converts the input dataset into  a number of tensors ready to train the BERT model for question
@@ -102,6 +106,9 @@ class DatasetEncoder:
                one valid answer per question must be provided (usually this is the case during training). If multiple
                valid answers are provided (usually during testing), set value to False.
         :param log_interval: the interval when to log the encoding status. Default: None
+        :param device_: if specified, the device used for the computations. Can be one of cpu, cuda, mkldnn, opengl,
+               opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it
+               will use a CPU. Default: None
         :return: input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded
                  sequence pairs, with padding at the end.
                  token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
@@ -120,6 +127,8 @@ class DatasetEncoder:
                  outside) the question + answer sentence pair after truncation to max_len. For N encoded sequence pairs,
                  dropped_samples = len(training_samples) - N
         """
+        device = set_hardware_acceleration(default=device_)
+
         dropped_samples = 0
         all_encoded_dicts = []
         all_q_start_positions = []
@@ -157,7 +166,7 @@ class DatasetEncoder:
                     truncation=True,
                     return_attention_mask=True,  # Construct attention masks.
                     return_tensors='pt',  # Return pytorch tensors.
-                )
+                ).to(device)
                 '''A dictionary containing the sequence pair and additional information. There are 3 keys, each value 
                 is a torch.tensor of shape (1, max_len) and can be converted to just (max_len) by applying .squeeze():
                 - 'input_ids': the ids of each token of the encoded sequence pair, with padding at the end
@@ -174,7 +183,7 @@ class DatasetEncoder:
                     possible_answer['text'],
                     add_special_tokens=False,
                     return_tensors='pt'
-                )
+                ).to(device)
             if len(sample['answers']) != len(possible_starts) or len(sample['answers']) != len(possible_ends):
                 dropped_samples += 1  # we drop sample due to answer being truncated
                 continue
@@ -188,8 +197,8 @@ class DatasetEncoder:
         token_type_ids = torch.cat([encoded_dict['token_type_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         attention_masks = torch.cat([encoded_dict['attention_mask'] for encoded_dict in all_encoded_dicts], dim=0)
         if start_end_positions_as_tensors:
-            all_q_start_positions = torch.tensor(all_q_start_positions).squeeze()
-            all_q_end_positions = torch.tensor(all_q_end_positions).squeeze()
+            all_q_start_positions = torch.tensor(all_q_start_positions).squeeze().to(device)
+            all_q_end_positions = torch.tensor(all_q_end_positions).squeeze().to(device)
         if dropped_samples > 0:
             logger.warning(
                 f"Dropped {dropped_samples} question+context pair samples from the dataset because the start or end "
