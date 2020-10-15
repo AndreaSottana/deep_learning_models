@@ -8,10 +8,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-"""During prediction, there's no need to build a dataloader which splits the set into train and validation, and 
-randomly shuffles the training samples. We can just pass the items directly one by one. As we're not training,
-there are no training epochs either."""
-
 
 def predict(
         input_ids: torch.Tensor,
