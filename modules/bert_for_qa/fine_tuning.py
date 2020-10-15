@@ -24,20 +24,13 @@ def _build_dataloaders(
     """
     Takes the pre-processed input data and returns the train and validation dataloaders with a customizable split, for
     input into the training loop.
-    :param input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded sequence
-           pairs, with padding at the end up to max_len. If decoded, the input_ids will consist of a "[CLS]" token,
-           followed by the question's tokens, followed by a "[SEP]" token, followed by the context's tokens, followed
-           by a "[SEP]" token, followed by "[PAD]" tokens, if relevant, up to max_len.
-    :param token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
-           positions in the answer text, 0 elsewhere (i.e. in question and padding)
-    :param attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
-           non-"[PAD]" tokens, 0 for "[PAD]" tokens.
-    :param start_positions: torch.tensor of shape (N) containing the index of the first answer token for each
-    :param end_positions: torch.tensor of shape (N) containing the index of the last answer token for each answer
-    :param batch_size: a tuple of 2 integers, representing the batch size of the train and validation dataloaders
-           respectively.
-    :param train_ratio: the train / (train + validation) split ratio. Default: 0.9 (i.e. 90% of the input data will
-           go to the train dataloader and 10% to the validation dataloader). The split is random.
+    :param input_ids: as described in the fine_tune_train_and_eval function documentation.
+    :param token_type_ids: idem
+    :param attention_masks: idem
+    :param start_positions: idem
+    :param end_positions: idem
+    :param batch_size: idem
+    :param train_ratio: idem
     :return: train_dataloader: the Dataloader for the train dataset.
              valid_dataloader: the Dataloader for the validation dataset.
     """
@@ -82,10 +75,10 @@ def fine_tune_train_and_eval(
            followed by the question's tokens, followed by a "[SEP]" token, followed by the context's tokens, followed
            by a "[SEP]" token, followed by "[PAD]" tokens, if relevant, up to max_len.
     :param token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
-           positions in the answer text, 0 elsewhere (i.e. in question and padding)
+           positions in the context text, 0 elsewhere (i.e. in question and padding)
     :param attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
            non-"[PAD]" tokens, 0 for "[PAD]" tokens.
-    :param start_positions: torch.tensor of shape (N) containing the index of the first answer token for each
+    :param start_positions: torch.tensor of shape (N) containing the index of the first answer token for each answer
     :param end_positions: torch.tensor of shape (N) containing the index of the last answer token for each answer
     :param batch_size: a tuple of 2 integers, representing the batch size of the train and validation dataloaders
            respectively.

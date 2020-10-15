@@ -4,6 +4,11 @@ import argparse
 
 
 def download_squad_dataset(path: str):
+    """
+    Downloads the SQuAD v1.1 dataset (consisting of three files) to the specified path.
+    :param path: the path to download the files to.
+    :return: None
+    """
     assert os.path.exists(path), f"The specified path does not exist: {path}."
     files = [
         ('train-v1.1.json', 'https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json'),

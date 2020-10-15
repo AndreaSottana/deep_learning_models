@@ -14,20 +14,21 @@ class DatasetEncoder:
     """
     This class handles all the preprocessing steps to convert the raw labelled dataset (consisting, at a minimum, of
     context-question-answer triplets plus other optional metadata) to the tensor inputs into the BERT model for
-    fine-tuning on question answering tasks.
+    fine-tuning on question answering tasks, or for predictions.
     The class can be initialised using a ready-made input dataset, or via the from_dict_of_paragraphs classmethod
     using a SQuAD-like dictionary dataset.
     """
     def __init__(self, tokenizer: PreTrainedTokenizerBase, input_dataset: List[Dict]):
         """
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
-        :param input_dataset: a list where each element is a dictionary with 3 to 5 items, namely
+        :param input_dataset: a list where each element is a dictionary with at least 3 items, namely
                - 'answers': a list of dictionaries, where each dictionary contains two str keys, namely 'text' with
                  the answer text and 'answer_start' with the index of the first answer character. Some datasets will
                  have one answer per question, whereas others might have multiple valid answers.
                - 'context_text': a str with the full reference text in which the answer can be found,
-               - 'qas_id': optional, a hash-like str which is unique to each question-answer pair,
                - 'question_text': a str with the question text,
+               Other optional, frequently used keys, are:
+               - 'qas_id': optional, a hash-like str which is unique to each question-answer pair,
                - 'title': optional (for SQuAD only): a str with the title of the article where the context is taken
                  from. This is not used directly and is for reference purposes only.
         """
@@ -51,6 +52,10 @@ class DatasetEncoder:
         :param input_dataset: passed as argument of _create_training_samples_from_dict_of_paragraphs
         :return: an instance of DatasetEncoder ready for use.
         """
+        assert 'data' in input_dataset.keys(), "SQuAD input dataset must have 'data' key."
+        assert all([key in art.keys() for key in ['title', 'paragraphs'] for art in input_dataset['data']]), \
+            "Input data don't match SQuAD structure. Keys 'title' and 'paragraphs' must be in each item in 'data' list."
+
         training_samples = cls(tokenizer, cls._create_training_samples_from_dict_of_paragraphs(input_dataset))
         return training_samples
 
@@ -83,11 +88,11 @@ class DatasetEncoder:
     ) -> Tuple[Tensor, Tensor, Tensor, Union[List[List[Tensor]], Tensor], Union[List[List[Tensor]], Tensor], int]:
         """
         This method converts the input dataset into  a number of tensors ready to train the BERT model for question
-        answering. It takes as input the maximum length to pad the text to. Any sample where the answer falls outside
-        (or partially outside) the question + answer sentence pair after its truncation to max_len is dropped from the
-        dataset. The remaining N samples are tokenized and encoded.
+        answering or be used for predictions. It takes as input the maximum length to pad the text to. Any sample
+        where the answer falls outside (or partially outside) the question + answer sentence pair after its truncation
+        to max_len is dropped from the dataset. The remaining N samples are tokenized and encoded.
         If using a test dataset, multiple valid answers can be provided, in which case some tensors will be returned
-        as lists instead (see below).
+        as lists instead (see details below).
         :param max_len: an int; the maximum length to pad the question + answer sentence pair sequence to. Training
                time is quadratic with max_len, however if max_len is too low, more answers will fall outside the limit
                and will be truncated, making those samples unusable and therefore hurting accuracy due to the loss of
@@ -104,11 +109,11 @@ class DatasetEncoder:
                  attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
                  non-"[PAD]" tokens, 0 for "[PAD]" tokens.
                  start_positions: if start_end_positions_as_tensors=True, this is a torch.tensor of shape (N)
-                 containing the index of the first answer token for each answer. Otherwise, this is a list of list,
+                 containing the index of the first answer token for each answer. Otherwise, this is a list of lists,
                  where each inner list contains m torch.tensors, where m is the number of possible correct answers.
                  Note that m can vary for each inner list depending on how many valid answers each question has.
                  Given this variability, it is not possible to convert the outer list to a tensor as the inner lists
-                 have variable lengths.
+                 of tensors have variable lengths.
                  end_positions: same as start_positions but for the last answer token for each answer.
                  dropped_samples: int, the number of samples dropped from the dataset due to the answer (or at least
                  one of the possible answers, if multiple valid answers are given) falling outside (or partially
