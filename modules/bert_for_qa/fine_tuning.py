@@ -1,6 +1,8 @@
 from torch.utils.data import TensorDataset, random_split, DataLoader, RandomSampler, SequentialSampler
+from transformers import get_linear_schedule_with_warmup
 from .utils import set_hardware_acceleration, format_time
-from typing import Optional
+from typing import Optional, Union, Tuple, Dict
+import json
 from tqdm import tqdm
 from time import time
 import torch
@@ -10,18 +12,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def build_dataloaders(
+def _build_dataloaders(
         input_ids: torch.Tensor,
         token_type_ids: torch.Tensor,
         attention_masks: torch.Tensor,
         start_positions: torch.Tensor,
         end_positions: torch.Tensor,
-        batch_size: int,
+        batch_size: Tuple[int, int],
         train_ratio: float = 0.9,
-):
-    assert input_ids.shape == token_type_ids.shape == attention_masks.shape, "Some input shapes are wrong"
-    assert input_ids.shape[0] == len(start_positions) == len(end_positions), "Some input shapes are wrong!"
-
+) -> Tuple[DataLoader, DataLoader]:
+    """
+    Takes the pre-processed input data and returns the train and validation dataloaders with a customizable split, for
+    input into the training loop.
+    :param input_ids: as described in the fine_tune_train_and_eval function documentation.
+    :param token_type_ids: idem
+    :param attention_masks: idem
+    :param start_positions: idem
+    :param end_positions: idem
+    :param batch_size: idem
+    :param train_ratio: idem
+    :return: train_dataloader: the Dataloader for the train dataset.
+             valid_dataloader: the Dataloader for the validation dataset.
+    """
     dataset = TensorDataset(
         input_ids, token_type_ids, attention_masks, start_positions, end_positions
     )
@@ -33,22 +45,73 @@ def build_dataloaders(
     )
     train_dataset, valid_dataset = random_split(dataset, [train_size, valid_size])
 
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=RandomSampler(train_dataset))  # could do with shuffle=True instead?
-    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, sampler=SequentialSampler(valid_dataset))
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size[0], sampler=RandomSampler(train_dataset))  # could do with shuffle=True instead?
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size[1], sampler=SequentialSampler(valid_dataset))
     logger.info(f"There are {len(train_dataloader)} training batches and {len(valid_dataloader)} validation batches.")
     return train_dataloader, valid_dataloader
 
 
-def fine_tune_train_and_valid(
-        train_dataloader,
-        valid_dataloader,
+def fine_tune_train_and_eval(
+        input_ids: torch.Tensor,
+        token_type_ids: torch.Tensor,
+        attention_masks: torch.Tensor,
+        start_positions: torch.Tensor,
+        end_positions: torch.Tensor,
+        batch_size: Tuple[int, int],
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
+        train_ratio: float = 0.9,
         training_epochs: int = 3,
-        lr_scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        lr_scheduler_warmup_steps: int = 0,
         save_model_path: Optional[str] = None,
+        save_stats_dict_path: Optional[str] = None,
         device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
-):
+) -> Tuple[torch.nn.Module, Dict[str, Dict[str, Union[float, str]]]]:
+    """
+    Performs the fine tuning of the model and returns the trained model as well as a dictionary with evaluation
+    statistics at each epochs which can be used to check overfitting and training time.
+    :param input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded sequence
+           pairs, with padding at the end up to max_len. If decoded, the input_ids will consist of a "[CLS]" token,
+           followed by the question's tokens, followed by a "[SEP]" token, followed by the context's tokens, followed
+           by a "[SEP]" token, followed by "[PAD]" tokens, if relevant, up to max_len.
+    :param token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
+           positions in the context text, 0 elsewhere (i.e. in question and padding)
+    :param attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
+           non-"[PAD]" tokens, 0 for "[PAD]" tokens.
+    :param start_positions: torch.tensor of shape (N) containing the index of the first answer token for each answer
+    :param end_positions: torch.tensor of shape (N) containing the index of the last answer token for each answer
+    :param batch_size: a tuple of 2 integers, representing the batch size of the train and validation dataloaders
+           respectively.
+    :param model: the model to use (must be instance of torch.nn.Module). For question answering,
+           transformers.BertForQuestionAnswering is recommended.
+    :param optimizer: the optimizer to use for the model (must be instance of torch.optim.Optimizer).
+    :param train_ratio: the train / (train + validation) split ratio. Default: 0.9 (i.e. 90% of the input data will
+           go to the train dataloader and 10% to the validation dataloader). The split is random.
+    :param training_epochs: the number of training epochs. Default: 3.
+    :param lr_scheduler_warmup_steps: the number of warmup steps of the learning rate scheduler. Default: 0.
+           Note: the purpose of this scheduler is to update the learning rate over the course of the training. It is
+           preferable for the learning rate to gradually get smaller and smaller so that training makes gradually
+           finer adjustments to the weights as the loss gets smaller.
+    :param save_model_path: if specified, the path where to save the model (should have '.pt' extension). Default: None.
+    :param save_stats_dict_path: if specified, the path where to save the dictionary of statistics (should have
+           '.json' extension). Default: None.
+    :param device_: if specified, the device used for the computations. Can be one of cpu, cuda, mkldnn, opengl,
+           opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it will
+           use a CPU. Default: None
+    :return: model: the fine tuned model.
+             training_stats: a dictionary with a number of statistics. For each epoch, the training loss, validation
+             loss, validation accuracy, training time and validation time are included.
+    """
+    assert input_ids.shape == token_type_ids.shape == attention_masks.shape, "Some input shapes are incompatible."
+    assert input_ids.shape[0] == len(start_positions) == len(end_positions), "Some input shapes are incompatible"
+
+    train_dataloader, valid_dataloader = _build_dataloaders(
+        input_ids, token_type_ids, attention_masks, start_positions, end_positions, batch_size, train_ratio
+    )
+    training_steps = training_epochs * len(train_dataloader)  # epochs * number of batches
+    lr_scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=lr_scheduler_warmup_steps, num_training_steps=training_steps
+    )
     device = set_hardware_acceleration(default=device_)
     model = model.to(device)
     training_stats = {}
@@ -93,7 +156,7 @@ def fine_tune_train_and_valid(
         true_end = torch.tensor([], dtype=torch.long, device=device)
 
         cumulative_eval_loss_per_epoch = 0
-        cumulative_eval_accuracy_per_epoch = 0
+        cumulative_eval_accuracy_per_epoch = 0  # WE DO THIS DIFFERENTLY. SHALL WE REMOVE THIS?
 
         for batch_num, batch in tqdm(enumerate(valid_dataloader), total=len(valid_dataloader)):
             logger.info(f"Running validation batch {batch_num + 1} of {len(valid_dataloader)}.")
@@ -138,5 +201,8 @@ def fine_tune_train_and_valid(
             "valid_time": valid_time
         }
     if save_model_path is not None:
-        torch.save(model, save_model_path)
+        torch.save(model.state_dict(), save_model_path)
+    if save_stats_dict_path is not None:
+        with open(save_stats_dict_path, "w") as file:
+            json.dump(training_stats, file)
     return model, training_stats
