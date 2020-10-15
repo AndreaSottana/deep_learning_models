@@ -21,18 +21,19 @@ class DatasetEncoder:
     def __init__(self, tokenizer: PreTrainedTokenizerBase, input_dataset: List[Dict]):
         """
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
-        :param input_dataset: a list where each element is a dictionary with at least 3 items, namely
-               - 'answers': a list of dictionaries, where each dictionary contains two str keys, namely 'text' with
-                 the answer text and 'answer_start' with the index of the first answer character. Some datasets will
-                 have one answer per question, whereas others might have multiple valid answers.
+        :param input_dataset: a list where each element is a dictionary with at least 2 items, namely
                - 'context_text': a str with the full reference text in which the answer can be found,
                - 'question_text': a str with the question text,
                Other optional, frequently used keys, are:
+               - 'answers': a list of dictionaries, where each dictionary contains two str keys, namely 'text' with
+                 the answer text and 'answer_start' with the index of the first answer character. Some datasets will
+                 have one answer per question, whereas others might have multiple valid answers. An answer is always
+                 needed for training and testing, but not when using the model in production and the answer is unknown.
                - 'qas_id': optional, a hash-like str which is unique to each question-answer pair,
                - 'title': optional (for SQuAD only): a str with the title of the article where the context is taken
                  from. This is not used directly and is for reference purposes only.
         """
-        expected_keys = ['answers', 'context_text', 'question_text']
+        expected_keys = ['context_text', 'question_text']
         assert all([key in dict_.keys() for key in expected_keys for dict_ in input_dataset]), \
             f"Each dictionary item in the input_dataset list must contain the following keys: {expected_keys}."
         self._tokenizer = tokenizer
@@ -84,6 +85,19 @@ class DatasetEncoder:
         return training_samples
 
     def tokenize_and_encode(
+            self,
+            with_answer: bool,
+            max_len,
+            start_end_positions_as_tensors: bool = True,
+            log_interval: Optional[int] = None,
+            device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
+    ):
+        if with_answer:
+            return self._tokenize_and_encode_with_answer(max_len, start_end_positions_as_tensors, log_interval, device_)
+        else:
+            return self._tokenize_and_encode_without_answer(max_len, device_)
+
+    def _tokenize_and_encode_with_answer(
             self,
             max_len: int,
             start_end_positions_as_tensors: bool = True,
@@ -192,6 +206,7 @@ class DatasetEncoder:
             all_encoded_dicts.append(encoded_dict)
             all_q_start_positions.append(possible_starts)
             all_q_end_positions.append(possible_ends)
+
         assert len(all_encoded_dicts) == len(self._input_dataset) - dropped_samples, "Lengths check failed!"
         input_ids = torch.cat([encoded_dict['input_ids'] for encoded_dict in all_encoded_dicts], dim=0)
         token_type_ids = torch.cat([encoded_dict['token_type_ids'] for encoded_dict in all_encoded_dicts], dim=0)
@@ -205,3 +220,60 @@ class DatasetEncoder:
                 f"token of the answer was at an unreachable position exceeding the max_len ({max_len})."
             )
         return input_ids, token_type_ids, attention_masks, all_q_start_positions, all_q_end_positions, dropped_samples
+
+    def _tokenize_and_encode_without_answer(
+            self,
+            max_len: int,
+            device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
+    ):
+        """
+        This method converts the input dataset into  a number of tensors ready to train the BERT model for question
+        answering or be used for predictions. It takes as input the maximum length to pad the text to. Any sample
+        where the answer falls outside (or partially outside) the question + answer sentence pair after its truncation
+        to max_len is dropped from the dataset. The remaining N samples are tokenized and encoded.
+        If using a test dataset, multiple valid answers can be provided, in which case some tensors will be returned
+        as lists instead (see details below).
+        :param max_len: an int; the maximum length to pad the question + answer sentence pair sequence to. Training
+               time is quadratic with max_len, however if max_len is too low, more answers will fall outside the limit
+               and will be truncated, making those samples unusable and therefore hurting accuracy due to the loss of
+               information. GPU or CPU memory limits also need be taken into account when finding the best trade-off.
+        :param start_end_positions_as_tensors: a boolean specifying whether start_positions and end_positions should be
+               returned as tensors. Default: True. If False, they will be returned as lists. Please note: if True, only
+               one valid answer per question must be provided (usually this is the case during training). If multiple
+               valid answers are provided (usually during testing), set value to False.
+        :param log_interval: the interval when to log the encoding status. Default: None
+        :param device_: if specified, the device used for the computations. Can be one of cpu, cuda, mkldnn, opengl,
+               opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it
+               will use a CPU. Default: None
+        :return: input_ids: torch.tensor of shape (N, max_len) representing the ids of each token of the N encoded
+                 sequence pairs, with padding at the end.
+                 token_type_ids: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for token
+                 positions in the context text, 0 elsewhere (i.e. in question and padding)
+                 attention_masks: torch.tensor of shape (N, max_len) where each Nth dimension is filled with 1 for
+                 non-"[PAD]" tokens, 0 for "[PAD]" tokens.
+                 start_positions: if start_end_positions_as_tensors=True, this is a torch.tensor of shape (N)
+                 containing the index of the first answer token for each answer. Otherwise, this is a list of lists,
+                 where each inner list contains m torch.tensors, where m is the number of possible correct answers.
+                 Note that m can vary for each inner list depending on how many valid answers each question has.
+                 Given this variability, it is not possible to convert the outer list to a tensor as the inner lists
+                 of tensors have variable lengths.
+                 end_positions: same as start_positions but for the last answer token for each answer.
+                 dropped_samples: int, the number of samples dropped from the dataset due to the answer (or at least
+                 one of the possible answers, if multiple valid answers are given) falling outside (or partially
+                 outside) the question + answer sentence pair after truncation to max_len. For N encoded sequence pairs,
+                 dropped_samples = len(training_samples) - N
+        """
+        device = set_hardware_acceleration(default=device_)
+
+        for i, sample in enumerate(self._input_dataset):
+            encoded_dict = self._tokenizer.encode_plus(
+                sample['question_text'],
+                sample['context_text'],
+                add_special_tokens=True,  # Add '[CLS]' and '[SEP]' tokens
+                max_length=max_len,
+                padding='max_length',  # Pad or truncates sentences to `max_length`
+                truncation=True,
+                return_attention_mask=True,  # Construct attention masks.
+                return_tensors='pt',  # Return pytorch tensors.
+            ).to(device)
+            return encoded_dict['input_ids'], encoded_dict['token_type_ids'], encoded_dict['attention_mask']
