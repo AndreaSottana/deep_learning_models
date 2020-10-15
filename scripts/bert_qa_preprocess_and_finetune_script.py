@@ -35,7 +35,7 @@ if __name__ == '__main__':
         optimizer=optimizer,
         train_ratio=0.9,
         training_epochs=3,
-        lr_scheduler=lr_scheduler,
+        lr_scheduler_warmup_steps=0,
         save_model_path="trained_model.pt",
         save_stats_dict_path="statistics.json"
     )
