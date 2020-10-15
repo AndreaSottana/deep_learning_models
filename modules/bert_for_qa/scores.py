@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from typing import List, Union
+from typing import List, Union, Tuple
 
 
 def exact_match_rate(
@@ -8,7 +8,35 @@ def exact_match_rate(
         real_end: Union[List[List[torch.Tensor]], torch.Tensor],
         pred_start: torch.Tensor,
         pred_end: torch.Tensor
-):
+) -> Tuple[int, int, float]:
+    """
+    Takes as input the real and predicted start and end tokens of N answers and returns the number of correct
+    predictions and the total match rate. An answer where only either the start or end token has been predicted
+    correctly will count as 50% match rate for that answer. While only one predicted start and end can be given for
+    an answer, multiple start-end pairs can be given for the ground truth values, as multiple correct answers may be
+    acceptable. If multiple possible ground truth answers are provided, a prediction is considered correct if its
+    values match exactly at least one of the ground truth values, and wrong otherwise.
+    :param real_start: the ground truth value of the N answers' start token indices. If only one ground truth value per
+           answer is given, this can be a torch.tensor if shape (N). If multiple valid answers are provided,  this
+           must be a list of N lists, where each inner list contains m torch.tensors, where m is the number of
+           possible correct answers. Note that m can vary for each inner list depending on how many valid answers each
+           question has. Given this variability, it is not possible to convert the outer list to a tensor as the
+           inner lists of tensors have variable lengths.
+    :param real_end: the ground truth value of the N answers' end token indices. If only one ground truth value per
+           answer is given, this can be a torch.tensor if shape (N). If multiple valid answers are provided,  this
+           must be a list of N lists, where each inner list contains m torch.tensors, where m is the number of
+           possible correct answers. Note that m can vary for each inner list depending on how many valid answers each
+           question has. Given this variability, it is not possible to convert the outer list to a tensor as the
+           inner lists of tensors have variable lengths.
+    :param pred_start: the predicted values of the N answers' start token indices. Must be a torch.tensor of shape (N),
+           with only one predicted token per answer.
+    :param pred_end: the predicted values of the N answers' end token indices. Must be a torch.tensor of shape (N),
+           with only one predicted token per answer.
+    :return: correct: the total number of correct predictions out of the total number of predictions which is 2*N (i.e.
+             N starts and N ends).
+             total_indices: The total number of predictions, i.e. 2*N (N starts and N ends)
+             match_rate: the exact match rate defined as the ratio correct/total_indices
+    """
     assert len(real_start) == len(real_end), "real_start and real_end shapes do not match."
     assert pred_start.shape == pred_end.shape, "pred_start and pred_end lengths do not match."
     assert len(real_start) == len(pred_start), \
@@ -41,7 +69,32 @@ def f1_score(
         real_end: Union[List[List[torch.Tensor]], torch.Tensor],
         pred_start: torch.Tensor,
         pred_end: torch.Tensor
-):
+) -> Tuple[List[float], float]:
+    """
+    Takes as input the real and predicted start and end tokens of N answers and returns the F1 scores (average and
+    per individual answer). While only one predicted start and end can be given for an answer, multiple start-end
+    pairs can be given for the ground truth values, as multiple correct answers may be acceptable. If multiple
+    possible ground truth answers are provided, the F1 score is calculated for each answer against all provided
+    ground truth values, and the highest of those F1 scores is taken as the final F1 score for that answer.
+    :param real_start: the ground truth value of the N answers' start token indices. If only one ground truth value per
+           answer is given, this can be a torch.tensor if shape (N). If multiple valid answers are provided,  this
+           must be a list of N lists, where each inner list contains m torch.tensors, where m is the number of
+           possible correct answers. Note that m can vary for each inner list depending on how many valid answers each
+           question has. Given this variability, it is not possible to convert the outer list to a tensor as the
+           inner lists of tensors have variable lengths.
+    :param real_end: the ground truth value of the N answers' end token indices. If only one ground truth value per
+           answer is given, this can be a torch.tensor if shape (N). If multiple valid answers are provided,  this
+           must be a list of N lists, where each inner list contains m torch.tensors, where m is the number of
+           possible correct answers. Note that m can vary for each inner list depending on how many valid answers each
+           question has. Given this variability, it is not possible to convert the outer list to a tensor as the
+           inner lists of tensors have variable lengths.
+    :param pred_start: the predicted values of the N answers' start token indices. Must be a torch.tensor of shape (N),
+           with only one predicted token per answer.
+    :param pred_end: the predicted values of the N answers' end token indices. Must be a torch.tensor of shape (N),
+           with only one predicted token per answer.
+    :return: all_f1: a list containing all the F1 scores for each predicted answer.
+             average_f1: the average F1 score on the whole input dataset of N answers.
+    """
     all_f1 = []
     for i, (pred_start_sample, pred_end_sample) in enumerate(zip(pred_start, pred_end)):
         '''The list below list will store how many correct predictions (start+end) the algorithm makes for every
@@ -66,7 +119,7 @@ def f1_score(
             recall = len(correctly_pred_indices) / len(real_indices)
             f1_sample = (2 * precision * recall) / (precision + recall)
             f1_options.append(f1_sample)
-        all_f1.append(max(f1_options))
+        all_f1.append(float(max(f1_options)))  # float() just so we avoid a mix of int and float in the list
 
     average_f1 = np.mean(all_f1)
     return all_f1, average_f1
