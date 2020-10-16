@@ -86,7 +86,7 @@ class DatasetEncoder:
 
     def tokenize_and_encode(
             self,
-            with_answer: bool,
+            with_answers: bool,
             max_len: int,
             start_end_positions_as_tensors: bool = True,
             log_interval: Optional[int] = None,
@@ -101,7 +101,7 @@ class DatasetEncoder:
         as lists instead (see details below). If with_answer=True, this will also return the tensors of start and end
         indices for each answer.
 
-        :param with_answer: bool; whether an answer is provided for each question. This is usually True for training
+        :param with_answers: bool; whether an answer is provided for each question. This is usually True for training
                and testing datasets, and False for real life production text when the answer is unknown.
         :param max_len: an int; the maximum length to pad the question + answer sentence pair sequence to. Training
                time is quadratic with max_len, however if max_len is too low, more answers will fall outside the limit
@@ -140,16 +140,16 @@ class DatasetEncoder:
             attention_masks: as above
             It does NOT return start_positions and end_positions and ground truth answer values are not provided.
         """
-        if with_answer:
+        if with_answers:
             assert all(['answers' in dict_.keys() for dict_ in self._input_dataset]), \
                 "Not all questions provided contain an answer. If you do not intend to use ground truth answer " \
-                "values for training or testing, please set with_answer=False ."
+                "values for training or testing, please set with_answers=False ."
             return self._tokenize_and_encode_with_answer(max_len, start_end_positions_as_tensors, log_interval, device_)
         else:
             if not start_end_positions_as_tensors:
-                logger.warning("Setting start_end_positions_as_tensors=False has no effect when with_answer=False.")
+                logger.warning("Setting start_end_positions_as_tensors=False has no effect when with_answers=False.")
             if log_interval is not None:
-                logger.warning("Setting log_interval has no effect when with_answer=False")
+                logger.warning("Setting log_interval has no effect when with_answers=False")
             return self._tokenize_and_encode_without_answer(max_len, device_)
 
     def _tokenize_and_encode_with_answer(
@@ -160,7 +160,7 @@ class DatasetEncoder:
             device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
     ) -> Tuple[Tensor, Tensor, Tensor, Union[List[List[Tensor]], Tensor], Union[List[List[Tensor]], Tensor], int]:
         """
-        Called by tokenize_and_encode when with_answer=True
+        Called by tokenize_and_encode when with_answers=True
         """
         device = set_hardware_acceleration(default=device_)
 
@@ -248,7 +248,7 @@ class DatasetEncoder:
             device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
     ):
         """
-        Called by tokenize_and_encode when with_answer=False.
+        Called by tokenize_and_encode when with_answers=False.
         """
         device = set_hardware_acceleration(default=device_)
 

@@ -102,6 +102,9 @@ def fine_tune_train_and_eval(
              training_stats: a dictionary with a number of statistics. For each epoch, the training loss, validation
              loss, validation accuracy, training time and validation time are included.
     """
+    assert all([isinstance(i, torch.Tensor) for i in [
+        input_ids, token_type_ids, attention_masks, start_positions, end_positions
+    ]]), "Some inputs are not tensors. When training, start_positions and end_positions must be tensors, not lists."
     assert input_ids.shape == token_type_ids.shape == attention_masks.shape, "Some input shapes are incompatible."
     assert input_ids.shape[0] == len(start_positions) == len(end_positions), "Some input shapes are incompatible"
 

@@ -47,7 +47,7 @@ class ChatBot:
             input_dataset=[{'context_text': self.context, 'question_text': question} for question in questions]
         )
         input_ids, token_type_ids, attention_masks = encoder.tokenize_and_encode(
-            max_len=self.max_len, with_answer=False
+            max_len=self.max_len, with_answers=False
         )
         pred_start, pred_end = predict(
             input_ids, token_type_ids, attention_masks, self.model, 1, disable_progress_bar=disable_progress_bar
