@@ -22,12 +22,12 @@ def set_hardware_acceleration(default: Optional[str] = None) -> torch.device:
     else:
         if torch.cuda.is_available():
             device = torch.device("cuda")
-            logger.warning(
+            logger.info(
                 f"There are {torch.cuda.device_count()} GPUs available. Using the {torch.cuda.get_device_name()} GPU."
             )
         else:
             device = torch.device("cpu")
-            logger.warning("No GPUs available, using CPU instead.")
+            logger.info("No GPUs available, using CPU instead.")
     return device
 
 
@@ -56,4 +56,4 @@ def gpu_memory_usage() -> Optional[pd.DataFrame]:
         df = df[1:]
         return df
     else:
-        logger.warning("No GPU is available.")
+        logger.warning("You called gpu_memory_usage but no GPU is available.")

@@ -178,7 +178,7 @@ class DatasetEncoder:
                     f"start_end_positions_as_tensors=False."
                 )
             if log_interval is not None and i % log_interval == 0 and i != 0:
-                logger.warning(
+                logger.info(
                     f"Encoding sample {i} of {len(self._input_dataset)}. Elapsed: {format_time(time() - t_i)}. "
                     f"Remaining: {format_time((time() - t_i) / i * (len(self._input_dataset) - i))}."
                 )

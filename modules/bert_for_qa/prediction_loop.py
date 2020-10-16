@@ -67,7 +67,7 @@ def predict(
             pred_start = torch.cat((pred_start, pred_start_positions))
             pred_end = torch.cat((pred_end, pred_end_positions))
 
-    logger.warning(f"All predictions calculated in {format_time(time() - t_i)}.")
+    logger.info(f"All predictions calculated in {format_time(time() - t_i)}.")
 
     return pred_start, pred_end
 

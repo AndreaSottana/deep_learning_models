@@ -144,8 +144,8 @@ def fine_tune_train_and_eval(
 
         average_training_loss_per_batch = cumulative_train_loss_per_epoch / len(train_dataloader)
         training_time = format_time(time() - t_i)
-        logger.warning(f"Epoch {epoch + 1} took {training_time} to train.")
-        logger.warning(f"Average training loss: {average_training_loss_per_batch}. \n Running validation.")
+        logger.info(f"Epoch {epoch + 1} took {training_time} to train.")
+        logger.info(f"Average training loss: {average_training_loss_per_batch}. \n Running validation.")
 
         t_i = time()
         model.eval()
@@ -189,9 +189,9 @@ def fine_tune_train_and_eval(
         average_validation_accuracy_per_epoch = total_correct / total_indices
         average_validation_loss_per_batch = cumulative_eval_loss_per_epoch / len(valid_dataloader)
         valid_time = format_time(time() - t_i)
-        logger.warning(f"Epoch {epoch + 1} took {valid_time} to validate.")
-        logger.warning(f"Average validation loss: {average_validation_loss_per_batch}.")
-        logger.warning(f"Average validation accuracy (out of 1): {average_validation_accuracy_per_epoch}.")
+        logger.info(f"Epoch {epoch + 1} took {valid_time} to validate.")
+        logger.info(f"Average validation loss: {average_validation_loss_per_batch}.")
+        logger.info(f"Average validation accuracy (out of 1): {average_validation_accuracy_per_epoch}.")
 
         training_stats[f"epoch_{epoch + 1}"] = {
             "training_loss": average_training_loss_per_batch,
