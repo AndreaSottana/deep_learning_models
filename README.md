@@ -18,9 +18,9 @@ entirely in `pytorch` with no additional deep learning libraries.
 Translation tasks  
 
 :white_check_mark: **BERT for Question Answering Fine Tuning**: full code to fine tune
-a base BERT model from `transformers.BertForQuestionAnswering` (i.e. a general, not-task-specific pre-trained BERT 
-model) for question answering tasks using the well-known  
-<a target="_blank" href="https://rajpurkar.github.io/SQuAD-explorer/">SQuAD v1.1 dataset</a>. The code includes all the
-data pre-processing steps, the training (fine-tuning) and validation of the model, as well as the scores calculations 
-based on the predictions on a test set. The code provides both CPU and cuda (GPU) support, and a final chat-bot 
-interface to answer questions given a context and the trained model.
+a base BERT model for question answering tasks using the well-known 
+<a target="_blank" href="https://rajpurkar.github.io/SQuAD-explorer/">SQuAD v1.1 dataset</a>, starting from a 
+`transformers.BertForQuestionAnswering` model (i.e. a general, non task-specific pre-trained BERT model). 
+The code includes all the data pre-processing steps, the training (fine-tuning) and validation of the model, as well 
+as the scores calculations based on the predictions on a test set. The code provides both CPU and cuda (GPU) support, 
+and a final chat-bot interface to answer questions given a context and the trained model.
