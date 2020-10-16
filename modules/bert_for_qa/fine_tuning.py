@@ -1,6 +1,6 @@
 from torch.utils.data import TensorDataset, random_split, DataLoader, RandomSampler, SequentialSampler
 from transformers import get_linear_schedule_with_warmup
-from .utils import set_hardware_acceleration, format_time
+from .utils import set_hardware_acceleration, format_time, gpu_memory_usage
 from typing import Optional, Union, Tuple, Dict
 import json
 from tqdm import tqdm
@@ -102,6 +102,9 @@ def fine_tune_train_and_eval(
              training_stats: a dictionary with a number of statistics. For each epoch, the training loss, validation
              loss, validation accuracy, training time and validation time are included.
     """
+    assert all([isinstance(i, torch.Tensor) for i in [
+        input_ids, token_type_ids, attention_masks, start_positions, end_positions
+    ]]), "Some inputs are not tensors. When training, start_positions and end_positions must be tensors, not lists."
     assert input_ids.shape == token_type_ids.shape == attention_masks.shape, "Some input shapes are incompatible."
     assert input_ids.shape[0] == len(start_positions) == len(end_positions), "Some input shapes are incompatible"
 
@@ -144,8 +147,8 @@ def fine_tune_train_and_eval(
 
         average_training_loss_per_batch = cumulative_train_loss_per_epoch / len(train_dataloader)
         training_time = format_time(time() - t_i)
-        logger.warning(f"Epoch {epoch + 1} took {training_time} to train.")
-        logger.warning(f"Average training loss: {average_training_loss_per_batch}. \n Running validation.")
+        logger.info(f"Epoch {epoch + 1} took {training_time} to train.")
+        logger.info(f"Average training loss: {average_training_loss_per_batch}. \n Running validation.")
 
         t_i = time()
         model.eval()
@@ -180,6 +183,8 @@ def fine_tune_train_and_eval(
                 pred_end = torch.cat((pred_end, pred_end_positions))
                 true_start = torch.cat((true_start, batch_start_positions))
                 true_end = torch.cat((true_end, batch_end_positions))
+            if torch.cuda.is_available():
+                logger.debug(f"GPU memory usage: \n", gpu_memory_usage())
 
         total_correct_start = int(sum(pred_start == true_start))
         total_correct_end = int(sum(pred_end == true_end))
@@ -189,9 +194,11 @@ def fine_tune_train_and_eval(
         average_validation_accuracy_per_epoch = total_correct / total_indices
         average_validation_loss_per_batch = cumulative_eval_loss_per_epoch / len(valid_dataloader)
         valid_time = format_time(time() - t_i)
-        logger.warning(f"Epoch {epoch + 1} took {valid_time} to validate.")
-        logger.warning(f"Average validation loss: {average_validation_loss_per_batch}.")
-        logger.warning(f"Average validation accuracy (out of 1): {average_validation_accuracy_per_epoch}.")
+        logger.info(f"Epoch {epoch + 1} took {valid_time} to validate.")
+        logger.info(f"Average validation loss: {average_validation_loss_per_batch}.")
+        logger.info(f"Average validation accuracy (out of 1): {average_validation_accuracy_per_epoch}.")
+        if torch.cuda.is_available():
+            logger.info(f"GPU memory usage: \n", gpu_memory_usage())
 
         training_stats[f"epoch_{epoch + 1}"] = {
             "training_loss": average_training_loss_per_batch,

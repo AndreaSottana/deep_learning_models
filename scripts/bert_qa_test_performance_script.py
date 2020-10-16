@@ -11,14 +11,18 @@ if __name__ == '__main__':
         dev = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, dev)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
-        tok_enc.tokenize_and_encode(max_len=384, log_interval=1000, start_end_positions_as_tensors=False)
+        tok_enc.tokenize_and_encode(
+            max_len=384, log_interval=1000, start_end_positions_as_tensors=False, with_answers=True
+        )
     for i in [input_ids, token_type_ids, attention_masks, start_positions, end_positions]:
-        try: print(i.shape)
-        except AttributeError: print(len(i))
+        try:
+            print(i.shape)
+        except AttributeError:
+            print(len(i))
     print(dropped_samples, " samples dropped.")
     model = torch.load("../models/trained_model_full.pt", map_location=torch.device('cpu'))
     pred_start, pred_end = predict(input_ids, token_type_ids, attention_masks, model, batch_size=16)
     correct, total_indices, match_rate = exact_match_rate(start_positions, end_positions, pred_start, pred_end)
-    print("AAA ", correct, total_indices, match_rate)
+    print(correct, total_indices, match_rate)
     all_f1, average_f1 = f1_score(start_positions, end_positions, pred_start, pred_end)
-    print("BBB ", average_f1)
+    print(average_f1)
