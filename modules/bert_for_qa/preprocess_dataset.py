@@ -95,7 +95,7 @@ class DatasetEncoder:
         """
         This method converts the input dataset into  a number of tensors ready to train the BERT model for question
         answering or be used for predictions. It takes as input the maximum length to pad the text to. Any sample
-        where the answer falls outside (or partially outside) the question + answer sentence pair after its truncation
+        where the answer falls outside (or partially outside) the question + context sentence pair after its truncation
         to max_len is dropped from the dataset. The remaining N samples are tokenized and encoded.
         If using a test dataset, multiple valid answers can be provided, in which case some tensors will be returned
         as lists instead (see details below). If with_answer=True, this will also return the tensors of start and end
