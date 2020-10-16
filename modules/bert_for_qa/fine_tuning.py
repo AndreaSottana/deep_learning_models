@@ -1,6 +1,6 @@
 from torch.utils.data import TensorDataset, random_split, DataLoader, RandomSampler, SequentialSampler
 from transformers import get_linear_schedule_with_warmup
-from .utils import set_hardware_acceleration, format_time
+from .utils import set_hardware_acceleration, format_time, gpu_memory_usage
 from typing import Optional, Union, Tuple, Dict
 import json
 from tqdm import tqdm
@@ -183,6 +183,8 @@ def fine_tune_train_and_eval(
                 pred_end = torch.cat((pred_end, pred_end_positions))
                 true_start = torch.cat((true_start, batch_start_positions))
                 true_end = torch.cat((true_end, batch_end_positions))
+            if torch.cuda.is_available():
+                logger.debug(f"GPU memory usage: \n", gpu_memory_usage())
 
         total_correct_start = int(sum(pred_start == true_start))
         total_correct_end = int(sum(pred_end == true_end))
@@ -195,6 +197,8 @@ def fine_tune_train_and_eval(
         logger.info(f"Epoch {epoch + 1} took {valid_time} to validate.")
         logger.info(f"Average validation loss: {average_validation_loss_per_batch}.")
         logger.info(f"Average validation accuracy (out of 1): {average_validation_accuracy_per_epoch}.")
+        if torch.cuda.is_available():
+            logger.info(f"GPU memory usage: \n", gpu_memory_usage())
 
         training_stats[f"epoch_{epoch + 1}"] = {
             "training_loss": average_training_loss_per_batch,
