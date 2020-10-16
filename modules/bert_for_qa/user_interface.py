@@ -1,7 +1,6 @@
-import torch
-from transformers import BertTokenizer
-from modules.bert_for_qa.prediction_loop import predict
-from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
+from .prediction_loop import predict
+from .preprocess_dataset import DatasetEncoder
+from typing import Union, List
 
 
 class ChatBot:
@@ -10,32 +9,25 @@ class ChatBot:
         self.tokenizer = tokenizer
         self.model = model
 
-    def answer(self, question: str):
+    def answer(self, questions: Union[str, List[str]]) -> Union[str, List[str]]:
+        if isinstance(questions, str):
+            questions = [questions]  # convert to list if a single question is given as string
         encoder = DatasetEncoder(
             tokenizer=self.tokenizer,
-            input_dataset=[{
-                'context_text': self.context,
-                'question_text': question
-            }]
+            input_dataset=[{'context_text': self.context, 'question_text': question} for question in questions]
         )
         input_ids, token_type_ids, attention_masks = encoder.tokenize_and_encode(
             max_len=500, with_answer=False
         )
         pred_start, pred_end = predict(input_ids, token_type_ids, attention_masks, self.model, batch_size=1)
-        predicted_answer = self.tokenizer.decode(input_ids[0, pred_start:pred_end+1])
-        return predicted_answer
+        print(pred_start.shape, pred_end.shape)
+        predicted_answers = [
+            self.tokenizer.decode(input_ids[0, pred_start_i:pred_end_i + 1]) for pred_start_i, pred_end_i in
+            zip(pred_start, pred_end)
+        ]
+        if len(predicted_answers) == 1:
+            return predicted_answers[0]  # return answer as string instead of list if there is only one question
+        return predicted_answers
 
 
-if __name__ == '__main__':
-    tokenizer = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
-    model = torch.load("../../models/trained_model_full.pt", map_location=torch.device('cpu'))
-    context = """
-Boris Johnson is a British politician, author, and former 
-journalist who has served as Prime Minister of the United Kingdom and Leader of the Conservative Party since 2019. 
-He was Foreign Secretary from 2016 to 2018 and Mayor of London from 2008 to 2016. Johnson was Member of 
-Parliament (MP) for Henley from 2001 to 2008 and has been MP for Uxbridge and South Ruislip since 2015. 
-Ideologically, he identifies as a one-nation conservative.
-"""
-    bot = ChatBot(context, tokenizer, model)
-    answer = bot.answer("Who is Boris Johnson?")
-    print("Answer is: ", answer)
+
