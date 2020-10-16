@@ -15,7 +15,8 @@ def predict(
         attention_masks: torch.Tensor,
         model: torch.nn.Module,
         batch_size: int,
-        device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
+        device_: Optional[str] = None,  # if None, it automatically detects if a GPU is available, if not uses a CPU
+        disable_progress_bar: bool = False
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Given a trained model and unseen data, performs the predictions and returns the results.
@@ -36,6 +37,8 @@ def predict(
     :param device_: if specified, the device used for the computations. Can be one of cpu, cuda, mkldnn, opengl,
            opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it will
            use a CPU. Default: None
+    :param disable_progress_bar: bool; whether to disable the tqdm progress bar. When used in production for quickly
+           returning answers to a single or small set of questions, the bar might be distracting. Default: False.
     :return: pred_start: torch.tensor of shape (N) with the predicted indices of the first answer token for each answer
              pred_end: torch.tensor of shape (N) with the predicted indices of the last answer token for each answer
     """
@@ -50,7 +53,7 @@ def predict(
 
     t_i = time()
     # batch the samples to speed up processing. We do batching manually here to avoid using DataLoader
-    for batch_i in tqdm(range(0, len(input_ids), batch_size)):
+    for batch_i in tqdm(range(0, len(input_ids), batch_size), disable=disable_progress_bar):
         batch_input_ids = input_ids[batch_i:batch_i + batch_size, :].to(device)
         batch_token_type_ids = token_type_ids[batch_i:batch_i + batch_size, :].to(device)
         batch_attention_masks = attention_masks[batch_i:batch_i + batch_size, :].to(device)

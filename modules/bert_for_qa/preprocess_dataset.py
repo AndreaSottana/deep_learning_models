@@ -18,7 +18,7 @@ class DatasetEncoder:
     The class can be initialised using a ready-made input dataset, or via the from_dict_of_paragraphs classmethod
     using a SQuAD-like dictionary dataset.
     """
-    def __init__(self, tokenizer: PreTrainedTokenizerBase, input_dataset: List[Dict]):
+    def __init__(self, tokenizer: PreTrainedTokenizerBase, input_dataset: List[Dict]) -> None:
         """
         :param tokenizer: the tokenizer used to tokenize the text. Must be a class derived from PreTrainedTokenizerBase.
         :param input_dataset: a list where each element is a dictionary with at least 2 items, namely
