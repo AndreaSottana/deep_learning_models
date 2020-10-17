@@ -246,7 +246,7 @@ class DatasetEncoder:
             self,
             max_len: int,
             device_: Optional[str] = None  # if None, it automatically detects if a GPU is available, if not uses a CPU
-    ):
+    ) -> Tuple[Tensor, Tensor, Tensor]:
         """
         Called by tokenize_and_encode when with_answers=False.
         """
