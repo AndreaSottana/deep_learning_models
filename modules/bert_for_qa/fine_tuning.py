@@ -124,7 +124,7 @@ def fine_tune_train_and_eval(
         model.train()
         cumulative_train_loss_per_epoch = 0.
         for batch_num, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
-            logger.info(f"Running training batch {batch_num + 1} of {len(train_dataloader)}.")
+            logger.debug(f"Running training batch {batch_num + 1} of {len(train_dataloader)}.")
             batch_input_ids, batch_token_type_ids, batch_attention_masks, batch_start_positions, batch_end_positions = \
                 batch[0].to(device), batch[1].to(device), batch[2].to(device), batch[3].to(device), batch[4].to(device)
             model.zero_grad()
@@ -149,6 +149,8 @@ def fine_tune_train_and_eval(
         training_time = format_time(time() - t_i)
         logger.info(f"Epoch {epoch + 1} took {training_time} to train.")
         logger.info(f"Average training loss: {average_training_loss_per_batch}. \n Running validation.")
+        if torch.cuda.is_available():
+            logger.info(f"GPU memory usage: \n", gpu_memory_usage())
 
         t_i = time()
         model.eval()

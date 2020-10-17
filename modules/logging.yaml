@@ -76,6 +76,25 @@ loggers:
     handlers: [console, debug_file_handler, training_logger, info_file_handler, warning_file_handler]
     propagate: no
 
+  modules.bert_for_qa.fine_tuning:
+    level: DEBUG
+    handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
+    propagate: no
+
+  modules.bert_for_qa.prediction_loop:
+    level: DEBUG
+    handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
+    propagate: no
+
+  modules.bert_for_qa.preprocess_dataset:
+    level: DEBUG
+    handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
+    propagate: no
+
+  modules.bert_for_qa.utils:
+    level: DEBUG
+    handlers: [console, debug_file_handler, info_file_handler, warning_file_handler]
+    propagate: no
 
 
 root:
