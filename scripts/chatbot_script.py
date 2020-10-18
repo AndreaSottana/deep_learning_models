@@ -19,10 +19,8 @@ if __name__ == '__main__':
         "Who is Boris Johnson?",
         "From when was Boris Johnson Foreign Secretary?",
         "Which party does Boris Johnson belong to?",
-        "Who is Boris Johnson?",
     ]
-    for question in questions:
-        answer = bot.answer(question)
+
+    answers = bot.answer(questions, disable_progress_bar=False)
+    for answer in answers:
         print("Answer is: ", answer)
-    answer = bot.answer(questions, disable_progress_bar=False)
-    print("Answer is: ", answer)

@@ -70,11 +70,11 @@ def predict(
             pred_start = torch.cat((pred_start, pred_start_positions))
             pred_end = torch.cat((pred_end, pred_end_positions))
         if torch.cuda.is_available():
-            logger.debug(f"GPU memory usage: \n", gpu_memory_usage())
+            logger.debug("GPU memory usage: \n", gpu_memory_usage())
 
     logger.info(f"All predictions calculated in {format_time(time() - t_i)}.")
     if torch.cuda.is_available():
-        logger.info(f"GPU memory usage: \n", gpu_memory_usage())
+        logger.info("GPU memory usage: \n", gpu_memory_usage())
 
     return pred_start, pred_end
 
