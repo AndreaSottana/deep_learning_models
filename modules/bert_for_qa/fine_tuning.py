@@ -174,7 +174,7 @@ def fine_tune_train_and_eval(
                     token_type_ids=batch_token_type_ids,
                     start_positions=batch_start_positions,
                     end_positions=batch_end_positions
-                )
+                )  # if we pass it the true labels, i.e. start_positions and end_positions it will also return the loss
                 cumulative_eval_loss_per_epoch += loss.item()
                 # SHALL WE MOVE THE BELOW TO CPU AND NUMPY OR KEEP GPU AND PYTORCH?
 
