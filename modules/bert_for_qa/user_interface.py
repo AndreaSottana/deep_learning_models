@@ -43,8 +43,7 @@ class ChatBot:
         if isinstance(questions, str):
             questions = [questions]  # convert to list if a single question is given as string
         encoder = DatasetEncoder(
-            tokenizer=self.tokenizer,
-            input_dataset=[{'context_text': self.context, 'question_text': question} for question in questions]
+            ## instantiate the Dataset Encoder class we created earlier. This about what you need here
         )
         input_ids, token_type_ids, attention_masks = encoder.tokenize_and_encode(
             max_len=self.max_len, with_answers=False
@@ -53,8 +52,7 @@ class ChatBot:
             input_ids, token_type_ids, attention_masks, self.model, 1, disable_progress_bar=disable_progress_bar
         )
         predicted_answers = [
-            self.tokenizer.decode(input_ids[i, pred_start_i:pred_end_i + 1])
-            for i, (pred_start_i, pred_end_i) in enumerate(zip(pred_start, pred_end))
+            ##  create a list with all predicted answers using a list comprehension
         ]
         if len(predicted_answers) == 1:
             return predicted_answers[0]  # return answer as string instead of list if there is only one question

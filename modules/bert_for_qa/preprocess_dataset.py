@@ -57,7 +57,8 @@ class DatasetEncoder:
         assert all([key in art.keys() for key in ['title', 'paragraphs'] for art in input_dataset['data']]), \
             "Input data don't match SQuAD structure. Keys 'title' and 'paragraphs' must be in each item in 'data' list."
 
-        training_samples = cls(tokenizer, cls._create_training_samples_from_dict_of_paragraphs(input_dataset))
+        training_samples = ## try to fill this line considering that the class is instantiated with the tokenizer, and
+        ## the output from  _create_training_samples_from_dict_of_paragraphs
         return training_samples
 
     @staticmethod
@@ -186,21 +187,18 @@ class DatasetEncoder:
             possible_ends = []
             # in dev sets with more than one possible answer, it records if some but not all valid answers are truncated
             for possible_answer in sample['answers']:
-                answer_tokens = self._tokenizer.tokenize(possible_answer['text'])
-                answer_replacement = " ".join(["[MASK]"] * len(answer_tokens))
+                answer_tokens =  ## tokenize the answer. Look at the _input_dataset structure to understand what you need
+                answer_replacement =  ## create a string with as many '[MASK]' tokens as the answer tokens
                 start_position_character = possible_answer['answer_start']
                 end_position_character = possible_answer['answer_start'] + len(possible_answer['text'])
-                context_with_replacement = sample['context_text'][:start_position_character] + answer_replacement + \
-                    sample['context_text'][end_position_character:]
+                context_with_replacement =  ## replace the answer in the original context string with answer_replacement
                 encoded_dict = self._tokenizer.encode_plus(
-                    sample['question_text'],
-                    context_with_replacement,
-                    add_special_tokens=True,  # Add '[CLS]' and '[SEP]' tokens
-                    max_length=max_len,
-                    padding='max_length',  # Pad or truncates sentences to `max_length`
-                    truncation=True,
-                    return_attention_mask=True,  # Construct attention masks.
-                    return_tensors='pt',  # Return pytorch tensors.
+
+                    ## Fill up the tokenizer with arguments. Look up the documentation to find out what you may need.
+                    ## Remember, we want to add the special '[CLS]' and '[SEP]' tokens, pad to the maximum length
+                    ## and truncate the remaining text, if applicable. We also want to return the attention masks
+                    ## and return the result as a pytorch tensor.
+
                 ).to(device)
                 '''A dictionary containing the sequence pair and additional information. There are 3 keys, each value 
                 is a torch.tensor of shape (1, max_len) and can be converted to just (max_len) by applying .squeeze():
@@ -211,7 +209,7 @@ class DatasetEncoder:
                 mask_token_indices = is_mask_token.nonzero(as_tuple=False)
                 if len(mask_token_indices) != len(answer_tokens):
                     continue  # ignore cases where start or end of answer exceed max_len and have been truncated
-                question_start_index, question_end_index = mask_token_indices[0], mask_token_indices[-1]
+                question_start_index, question_end_index =  ## fill this line using mask_token_indices appropriately
                 possible_starts.append(question_start_index)
                 possible_ends.append(question_end_index)
                 answer_token_ids = self._tokenizer.encode(
@@ -222,7 +220,7 @@ class DatasetEncoder:
             if len(sample['answers']) != len(possible_starts) or len(sample['answers']) != len(possible_ends):
                 dropped_samples += 1  # we drop sample due to answer being truncated
                 continue
-            encoded_dict['input_ids'][0, question_start_index:question_end_index + 1] = answer_token_ids
+            ## modify encoded_dict['input_ids'] to that the "[MASK]" tokens are replaced with the original answer tokens
             # Finally, replace the "[MASK]" tokens with the actual answer tokens
             all_encoded_dicts.append(encoded_dict)
             all_q_start_positions.append(possible_starts)

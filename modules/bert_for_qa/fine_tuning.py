@@ -37,8 +37,8 @@ def _build_dataloaders(
     dataset = TensorDataset(
         input_ids, token_type_ids, attention_masks, start_positions, end_positions
     )
-    train_size = int(train_ratio * len(dataset))
-    valid_size = len(dataset) - train_size
+    train_size =  ## define the size of the train dataset using train_ratio. It must be an integer
+    valid_size =  ## define the size of the validation dataset using train_size
     logger.info(
         f"The input dataset has {len(dataset)} input samples, which have been split into {train_size} training "
         f"samples and {valid_size} validation samples."
@@ -113,7 +113,7 @@ def fine_tune_train_and_eval(
     )
     training_steps = training_epochs * len(train_dataloader)  # epochs * number of batches
     lr_scheduler = get_linear_schedule_with_warmup(
-        optimizer, num_warmup_steps=lr_scheduler_warmup_steps, num_training_steps=training_steps
+        ## fill in the parameters of the learning rate scheduler. Look up the documentation to do so
     )
     device = set_hardware_acceleration(default=device_)
     model = model.to(device)
@@ -121,7 +121,7 @@ def fine_tune_train_and_eval(
     for epoch in (range(training_epochs)):
         logger.info(f"Training epoch {epoch + 1} of {training_epochs}. Running training.")
         t_i = time()
-        model.train()
+        ## set training mode
         cumulative_train_loss_per_epoch = 0.
         for batch_num, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             logger.debug(f"Running training batch {batch_num + 1} of {len(train_dataloader)}.")
@@ -130,16 +130,14 @@ def fine_tune_train_and_eval(
             model.zero_grad()
             #  model.zero_grad() and optimizer.zero_grad() are the same IF all model parameters are in that optimizer.
             #  It could be safer to call model.zero_grad() if you have two or more optimizers for one model.
-            loss, start_logits, end_logits = model(
-                input_ids=batch_input_ids,
-                attention_mask=batch_attention_masks,
-                token_type_ids=batch_token_type_ids,
-                start_positions=batch_start_positions,
-                end_positions=batch_end_positions
-            )  # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
+
+            ## implement the forward pass. Look up the documentation to understand what input you need to pass and
+            ## what outputs it returns
+
+            # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
 
             cumulative_train_loss_per_epoch += loss.item()
-            loss.backward()
+            ## perform backpropagation
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             # clipping the norm of the gradients to 1.0 to help prevent the "exploding gradients" issues.
             optimizer.step()  # update model parameters
@@ -153,7 +151,7 @@ def fine_tune_train_and_eval(
             logger.info("GPU memory usage: \n", gpu_memory_usage())
 
         t_i = time()
-        model.eval()
+        ## set eval mode
 
         pred_start = torch.tensor([], dtype=torch.long, device=device)  # initialising tensors for storing results
         pred_end = torch.tensor([], dtype=torch.long, device=device)
@@ -168,18 +166,13 @@ def fine_tune_train_and_eval(
             batch_input_ids, batch_token_type_ids, batch_attention_masks, batch_start_positions, batch_end_positions = \
                 batch[0].to(device), batch[1].to(device), batch[2].to(device), batch[3].to(device), batch[4].to(device)
             with torch.no_grad():
-                loss, start_logits, end_logits = model(
-                    input_ids=batch_input_ids,
-                    attention_mask=batch_attention_masks,
-                    token_type_ids=batch_token_type_ids,
-                    start_positions=batch_start_positions,
-                    end_positions=batch_end_positions
-                )  # if we pass it the true labels, i.e. start_positions and end_positions it will also return the loss
+                ## implement the forward pass as before
+                # if we pass it the true labels, i.e. start_positions and end_positions it will also return the loss
                 cumulative_eval_loss_per_epoch += loss.item()
                 # SHALL WE MOVE THE BELOW TO CPU AND NUMPY OR KEEP GPU AND PYTORCH?
 
-                pred_start_positions = torch.argmax(start_logits, dim=1)
-                pred_end_positions = torch.argmax(end_logits, dim=1)
+                pred_start_positions =  ## define the predicted start positions (hint: you may wish yo loop up the documentation of torch.argmax)
+                pred_end_positions =  ## define the predicted end positions
 
                 pred_start = torch.cat((pred_start, pred_start_positions))
                 pred_end = torch.cat((pred_end, pred_end_positions))
@@ -188,8 +181,8 @@ def fine_tune_train_and_eval(
             if torch.cuda.is_available():
                 logger.debug("GPU memory usage: \n", gpu_memory_usage())
 
-        total_correct_start = int(sum(pred_start == true_start))
-        total_correct_end = int(sum(pred_end == true_end))
+        total_correct_start =  ## define the number of correctly predicted start tokens
+        total_correct_end =  ## define the number of correctly predicted end tokens
         total_correct = total_correct_start + total_correct_end
         total_indices = len(true_start) + len(true_end)
 

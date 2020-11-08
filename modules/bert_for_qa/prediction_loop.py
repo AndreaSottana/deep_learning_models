@@ -54,15 +54,11 @@ def predict(
     t_i = time()
     # batch the samples to speed up processing. We do batching manually here to avoid using DataLoader
     for batch_i in tqdm(range(0, len(input_ids), batch_size), disable=disable_progress_bar):
-        batch_input_ids = input_ids[batch_i:batch_i + batch_size, :].to(device)
-        batch_token_type_ids = token_type_ids[batch_i:batch_i + batch_size, :].to(device)
-        batch_attention_masks = attention_masks[batch_i:batch_i + batch_size, :].to(device)
+        batch_input_ids =  ## create the batch manually
+        batch_token_type_ids =  ## create the batch manually
+        batch_attention_masks =  ## create the batch manually
         with torch.no_grad():
-            start_logits, end_logits = model(
-                input_ids=batch_input_ids,
-                attention_mask=batch_attention_masks,
-                token_type_ids=batch_token_type_ids,
-            )  # if we don't pass it start_positions and end_positions it won't return the loss, unlike during training
+            ## implement the forward pass. Look up the documentation, as this is slightly different compared to the training loop
 
             pred_start_positions = torch.argmax(start_logits, dim=1)
             pred_end_positions = torch.argmax(end_logits, dim=1)
