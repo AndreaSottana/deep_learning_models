@@ -1,11 +1,13 @@
 import torch
-from transformers import BertTokenizer
+from transformers import BertTokenizer, BertForQuestionAnswering
 from modules.bert_for_qa.user_interface import ChatBot
 
 
 if __name__ == '__main__':
     tokenizer = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
-    model = torch.load("../models/trained_model_full.pt", map_location=torch.device('cpu'))
+    model = BertForQuestionAnswering.from_pretrained("bert-base-cased")
+    print(model.load_state_dict(torch.load("models/trained_model_state_dict.pt", map_location=torch.device('cpu'))))
+    # The above is an inplace function but we want to check that it prints out "<All keys matched successfully>"
     context = """
     Boris Johnson is a British politician, author, and former  journalist who has served as Prime Minister of the United 
     Kingdom and Leader of the Conservative Party since 2019. 

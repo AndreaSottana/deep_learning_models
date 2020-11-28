@@ -112,6 +112,7 @@ if __name__ == '__main__':
             num_encoder_layers=hp.LAYERS,
             num_decoder_layers=hp.LAYERS
         )
+        print(transformer)
         logits, encoder_attention_weights, masked_mha_attention_weights, decoder_attention_weights = transformer(
             input_sequence, target_sequence
         )

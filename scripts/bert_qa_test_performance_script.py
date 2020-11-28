@@ -7,7 +7,7 @@ from modules.bert_for_qa.scores import exact_match_rate, f1_score
 if __name__ == '__main__':
     tokenizerr = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
     import json
-    with open("../data/SQuAD/dev-v1.1-small.json", "r") as f:
+    with open("data/SQuAD/dev-v1.1-small.json", "r") as f:
         dev = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, dev)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
