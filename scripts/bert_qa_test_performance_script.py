@@ -2,7 +2,7 @@ import yaml
 import json
 import torch
 import logging.config
-from transformers import BertTokenizer
+from transformers import BertTokenizer, BertForQuestionAnswering
 from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
 from modules.bert_for_qa.prediction_loop import predict
 from modules.bert_for_qa.scores import exact_match_rate, f1_score
@@ -27,11 +27,12 @@ if __name__ == '__main__':
         except AttributeError:
             print(len(i))
     print(dropped_samples, " samples dropped.")
+    model = BertForQuestionAnswering.from_pretrained("bert-base-cased")
     try:
-        model = torch.load("models/trained_model_full.pt")
+        print(model.load_state_dict(torch.load("models/trained_model_epoch_3.pt")))
         logging.warning("Keeping model for predictions on CUDA device!")
     except RuntimeError:
-        model = torch.load("models/trained_model_full.pt", map_location=torch.device('cpu'))
+        print(model.load_state_dict(torch.load("models/trained_model_epoch_3.pt", map_location=torch.device('cpu'))))
         logging.warning("Putting model for predictions on CPU as no GPU was found!")
     pred_start, pred_end = predict(input_ids, token_type_ids, attention_masks, model, batch_size=16)
     correct, total_indices, match_rate = exact_match_rate(start_positions, end_positions, pred_start, pred_end)

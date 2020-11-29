@@ -45,6 +45,6 @@ if __name__ == '__main__':
         train_ratio=0.9,
         training_epochs=3,
         lr_scheduler_warmup_steps=0,
-        save_model_path="trained_model.pt",
+        save_model_path="models/trained_model.pt",
         save_stats_dict_path="statistics.json"
     )
