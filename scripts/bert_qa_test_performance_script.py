@@ -14,7 +14,7 @@ if __name__ == '__main__':
     logging.config.dictConfig(config)
 
     tokenizer = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
-    with open("data/SQuAD/dev-v1.1-small.json", "r") as f:
+    with open("data/SQuAD/dev-v1.1.json", "r") as f:
         dev = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizer, dev)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     correct, total_indices, match_rate = exact_match_rate(start_positions, end_positions, pred_start, pred_end)
     all_f1, average_f1 = f1_score(start_positions, end_positions, pred_start, pred_end)
     test_set_results = {
-        "correcr": correct,
+        "correct": correct,
         "total_indices": total_indices,
         "match_rate": match_rate,
         "all_f1": all_f1,
