@@ -1,12 +1,18 @@
+import yaml
 import json
 import torch
-import logging
+import logging.config
 from transformers import BertTokenizer
 from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
 from modules.bert_for_qa.prediction_loop import predict
 from modules.bert_for_qa.scores import exact_match_rate, f1_score
 
 if __name__ == '__main__':
+    LOGGING_CONFIG = "modules/logging.yaml"
+    with open(LOGGING_CONFIG, 'r') as f:
+        config = yaml.safe_load(f)
+    logging.config.dictConfig(config)
+
     tokenizer = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
     with open("data/SQuAD/dev-v1.1-small.json", "r") as f:
         dev = json.load(f)

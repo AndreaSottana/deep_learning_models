@@ -1,8 +1,15 @@
+import yaml
+import logging.config
 from transformers import BertTokenizer, BertForQuestionAnswering, AdamW
 from modules.bert_for_qa.preprocess_dataset import DatasetEncoder
 from modules.bert_for_qa.fine_tuning import fine_tune_train_and_eval
 
 if __name__ == '__main__':
+    LOGGING_CONFIG = "modules/logging.yaml"
+    with open(LOGGING_CONFIG, 'r') as f:
+        config = yaml.safe_load(f)
+    logging.config.dictConfig(config)
+
     tokenizerr = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
     import json
     with open("data/SQuAD/train-v1.1-small.json", "r") as f:
