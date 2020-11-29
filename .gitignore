@@ -10,6 +10,8 @@ __pycache__/
 data/
 notebooks/
 models/
+scripts/colab*.sh
+# ignore scripts containing data for Google Colab/ngrok interaction
 
 # Distribution / packaging
 .Python

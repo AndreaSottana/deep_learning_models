@@ -92,7 +92,8 @@ def fine_tune_train_and_eval(
            Note: the purpose of this scheduler is to update the learning rate over the course of the training. It is
            preferable for the learning rate to gradually get smaller and smaller so that training makes gradually
            finer adjustments to the weights as the loss gets smaller.
-    :param save_model_path: if specified, the path where to save the model (should have '.pt' extension). Default: None.
+    :param save_model_path: if specified, the path where to save the model (should have '.pt' extension). The model
+           will be save at every epoch with the epoch suffix, for easy comparison. Default: None.
     :param save_stats_dict_path: if specified, the path where to save the dictionary of statistics (should have
            '.json' extension). Default: None.
     :param device_: if specified, the device used for the computations. Can be one of cpu, cuda, mkldnn, opengl,
@@ -209,8 +210,9 @@ def fine_tune_train_and_eval(
             "training_time": training_time,
             "valid_time": valid_time
         }
-    if save_model_path is not None:
-        torch.save(model.state_dict(), save_model_path)
+        if save_model_path is not None:
+            save_model_path = save_model_path.split(".")[0]  # removing extension if present
+            torch.save(model.state_dict(), f"{save_model_path}_epoch_{epoch + 1}.pt")  # readd .pt extension
     if save_stats_dict_path is not None:
         with open(save_stats_dict_path, "w") as file:
             json.dump(training_stats, file)
