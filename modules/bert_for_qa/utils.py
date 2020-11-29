@@ -48,7 +48,7 @@ def gpu_memory_usage() -> Optional[pd.DataFrame]:
     :return: df: a pd.DataFrame with two columns: "memory.total [MiB]" and "memory.used [MiB]". If no GPU is available,
              it returns None and raises a warning.
     """
-    return pd.DataFrame()
+    return "Cannot check GPU usage at this time!"
     # if torch.cuda.is_available():
     #     results = os.popen('nvidia-smi --query-gpu=memory.total,memory.used --format=csv')
     #     reader = csv.reader(results, delimiter=",")
