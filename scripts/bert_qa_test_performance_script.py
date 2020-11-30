@@ -41,7 +41,6 @@ if __name__ == '__main__':
         "correct": correct,
         "total_indices": total_indices,
         "match_rate": match_rate,
-        "all_f1": all_f1,
         "average_f1": average_f1
     }
     with open("models/test_set_results.json", "w") as f:
