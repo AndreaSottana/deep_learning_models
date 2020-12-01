@@ -31,6 +31,8 @@ if __name__ == '__main__':
         output_attentions=False,
         output_hidden_states=False,
     )
+    for param in model.bert.parameters():
+        param.requires_grad = False
     optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)  # defaults: lr=5e-5, eps=1e-8
 
     model, training_stats = fine_tune_train_and_eval(

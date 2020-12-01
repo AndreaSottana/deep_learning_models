@@ -100,8 +100,9 @@ def fine_tune_train_and_eval(
            opencl, ideep, hip, msnpu. If set to None, it will default to GPU (cuda) if one is available, else it will
            use a CPU. Default: None
     :return: model: the fine tuned model.
-             training_stats: a dictionary with a number of statistics. For each epoch, the training loss, validation
-             loss, validation accuracy, training time and validation time are included.
+             training_stats: a dictionary with a number of statistics. For each epoch, the training loss per epoch,
+             training loss per step, validation loss per epoch, validation accuracy, training time and validation
+             time are included.
     """
     assert all([isinstance(i, torch.Tensor) for i in [
         input_ids, token_type_ids, attention_masks, start_positions, end_positions
@@ -123,6 +124,7 @@ def fine_tune_train_and_eval(
         logger.info(f"Training epoch {epoch + 1} of {training_epochs}. Running training.")
         t_i = time()
         model.train()
+        training_loss_per_step = []
         cumulative_train_loss_per_epoch = 0.
         for batch_num, batch in tqdm(enumerate(train_dataloader), total=len(train_dataloader)):
             logger.debug(f"Running training batch {batch_num + 1} of {len(train_dataloader)}.")
@@ -140,6 +142,7 @@ def fine_tune_train_and_eval(
             )  # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
 
             cumulative_train_loss_per_epoch += loss.item()
+            training_loss_per_step.append(loss.item())
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             # clipping the norm of the gradients to 1.0 to help prevent the "exploding gradients" issues.
@@ -205,6 +208,7 @@ def fine_tune_train_and_eval(
 
         training_stats[f"epoch_{epoch + 1}"] = {
             "training_loss": average_training_loss_per_batch,
+            "training_loss_per_step": training_loss_per_step,
             "valid_loss": average_validation_loss_per_batch,
             "valid_accuracy": average_validation_accuracy_per_epoch,
             "training_time": training_time,
