@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     tokenizerr = BertTokenizer.from_pretrained("bert-base-cased", do_lower_case=False)
     import json
-    with open("data/SQuAD/train-v1.1.json", "r") as f:
+    with open("data/SQuAD/train-v1.1-small.json", "r") as f:
         train = json.load(f)
     tok_enc = DatasetEncoder.from_dict_of_paragraphs(tokenizerr, train)
     input_ids, token_type_ids, attention_masks, start_positions, end_positions, dropped_samples = \
