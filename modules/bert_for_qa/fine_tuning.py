@@ -140,7 +140,7 @@ def fine_tune_train_and_eval(
                 start_positions=batch_start_positions,
                 end_positions=batch_end_positions
             )  # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
-
+            print("AAA\n", type(loss), "\n", loss, "\n", dir(loss))
             loss_item = loss.item()
             cumulative_train_loss_per_epoch += loss_item
             training_loss_per_step.append(loss_item)
