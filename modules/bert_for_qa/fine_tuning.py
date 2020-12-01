@@ -141,8 +141,9 @@ def fine_tune_train_and_eval(
                 end_positions=batch_end_positions
             )  # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
 
-            cumulative_train_loss_per_epoch += loss.item()
-            training_loss_per_step.append(loss.item())
+            loss_item = loss.item()
+            cumulative_train_loss_per_epoch += loss_item
+            training_loss_per_step.append(loss_item)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1)
             # clipping the norm of the gradients to 1.0 to help prevent the "exploding gradients" issues.
