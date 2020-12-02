@@ -133,15 +133,6 @@ def fine_tune_train_and_eval(
             model.zero_grad()
             #  model.zero_grad() and optimizer.zero_grad() are the same IF all model parameters are in that optimizer.
             #  It could be safer to call model.zero_grad() if you have two or more optimizers for one model.
-            print(batch_input_ids.shape, batch_attention_masks.shape, batch_token_type_ids.shape, batch_start_positions.shape, batch_end_positions.shape)
-            print(type(model))
-            print('RESULTS, ', model(
-                input_ids=batch_input_ids,
-                attention_mask=batch_attention_masks,
-                token_type_ids=batch_token_type_ids,
-                start_positions=batch_start_positions,
-                end_positions=batch_end_positions
-            ))
             loss, start_logits, end_logits = model(
                 input_ids=batch_input_ids,
                 attention_mask=batch_attention_masks,
@@ -150,7 +141,6 @@ def fine_tune_train_and_eval(
                 end_positions=batch_end_positions
             )  # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
 
-            print("AAA\n", type(loss), "\n", loss, "\n", dir(loss))
             loss_item = loss.item()
             cumulative_train_loss_per_epoch += loss_item
             training_loss_per_step.append(loss_item)
