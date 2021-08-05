@@ -29,10 +29,10 @@ if __name__ == '__main__':
     print(dropped_samples, " samples dropped.")
     model = BertForQuestionAnswering.from_pretrained("bert-base-cased")
     try:
-        print(model.load_state_dict(torch.load("models/trained_model_epoch_3.pt")))
+        print(model.load_state_dict(torch.load("models/trained_model_state_dict.pt")))
         logging.warning("Keeping model for predictions on CUDA device!")
     except RuntimeError:
-        print(model.load_state_dict(torch.load("models/trained_model_epoch_3.pt", map_location=torch.device('cpu'))))
+        print(model.load_state_dict(torch.load("models/trained_model_state_dict.pt", map_location=torch.device('cpu'))))
         logging.warning("Putting model for predictions on CPU as no GPU was found!")
     pred_start, pred_end = predict(input_ids, token_type_ids, attention_masks, model, batch_size=16)
     correct, total_indices, match_rate = exact_match_rate(start_positions, end_positions, pred_start, pred_end)

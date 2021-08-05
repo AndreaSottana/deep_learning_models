@@ -131,13 +131,14 @@ def fine_tune_train_and_eval(
             model.zero_grad()
             #  model.zero_grad() and optimizer.zero_grad() are the same IF all model parameters are in that optimizer.
             #  It could be safer to call model.zero_grad() if you have two or more optimizers for one model.
-            loss, start_logits, end_logits = model(
+            output = model(
                 input_ids=batch_input_ids,
                 attention_mask=batch_attention_masks,
                 token_type_ids=batch_token_type_ids,
                 start_positions=batch_start_positions,
                 end_positions=batch_end_positions
             )  # BertForQuestionAnswering uses CrossEntropyLoss by default, no need to calculate explicitly
+            loss, start_logits, end_logits = output['loss'], output['start_logits'], output['end_logits']
 
             cumulative_train_loss_per_epoch += loss.item()
             loss.backward()
@@ -169,13 +170,14 @@ def fine_tune_train_and_eval(
             batch_input_ids, batch_token_type_ids, batch_attention_masks, batch_start_positions, batch_end_positions = \
                 batch[0].to(device), batch[1].to(device), batch[2].to(device), batch[3].to(device), batch[4].to(device)
             with torch.no_grad():
-                loss, start_logits, end_logits = model(
+                output = model(
                     input_ids=batch_input_ids,
                     attention_mask=batch_attention_masks,
                     token_type_ids=batch_token_type_ids,
                     start_positions=batch_start_positions,
                     end_positions=batch_end_positions
                 )  # if we pass it the true labels, i.e. start_positions and end_positions it will also return the loss
+                loss, start_logits, end_logits = output['loss'], output['start_logits'], output['end_logits']
                 cumulative_eval_loss_per_epoch += loss.item()
                 # SHALL WE MOVE THE BELOW TO CPU AND NUMPY OR KEEP GPU AND PYTORCH?
 
