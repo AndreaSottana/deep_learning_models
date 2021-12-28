@@ -9,4 +9,3 @@ pytest
 transformers
 wget
 pandas
-st
